@@ -1,0 +1,984 @@
+{
+ "species": "Deinosuchus",
+ "sex": "Female",
+ "aliases": [],
+ "source": "D:/JWE2 Stuff/Personal Mods/JWE3/Images and Models/Dinosaurs/Land (Base)/Deinosuchus/Female",
+ "layers": [
+  {
+   "index": 0,
+   "layer_no": 1,
+   "swatch": "Swatch_Cera_Tri_ElephantSkin",
+   "transform_fgm": "Deinosuchus_Layer_01",
+   "used": true,
+   "increment_channel": 1,
+   "slices": {
+    "pDiffuseTexture": 6,
+    "pHeightTexture": 6,
+    "pPackedTexture": 6,
+    "pRemapTexture": 6
+   },
+   "swatch_colour_weight": 1.0,
+   "blend_texture": 0,
+   "blend_channel": "R",
+   "params": {
+    "pDiffuseContrast": [
+     0.75
+    ],
+    "pDiffuseSaturation": [
+     1.0
+    ],
+    "pGlobalColouringWeight": [
+     1.0
+    ],
+    "pHeightBlendScaleA": [
+     0.0
+    ],
+    "pHeightBlendScaleB": [
+     0.0
+    ],
+    "pHeightOffset": [
+     0.0
+    ],
+    "pHeightScale": [
+     0.0010000000474974513
+    ],
+    "pRemapLutIndex": [
+     0.0
+    ],
+    "pUVEnableProjection": [
+     0.0
+    ],
+    "pUVOffset": [
+     0.5,
+     0.5
+    ],
+    "pUVRotationAngle": [
+     0.0
+    ],
+    "pUVRotationPosition": [
+     0.0,
+     0.0
+    ],
+    "pUVTile": [
+     18.0,
+     18.0
+    ]
+   }
+  },
+  {
+   "index": 1,
+   "layer_no": 2,
+   "swatch": "Swatch_Thero_Croc_BackScales",
+   "transform_fgm": "Deinosuchus_Layer_02",
+   "used": true,
+   "increment_channel": 1,
+   "slices": {
+    "pDiffuseTexture": 27,
+    "pHeightTexture": 27,
+    "pPackedTexture": 27,
+    "pRemapTexture": 27
+   },
+   "swatch_colour_weight": 1.0,
+   "blend_texture": 0,
+   "blend_channel": "G",
+   "params": {
+    "pDiffuseContrast": [
+     0.3700000047683716
+    ],
+    "pDiffuseSaturation": [
+     1.0
+    ],
+    "pGlobalColouringWeight": [
+     1.0
+    ],
+    "pHeightBlendScaleA": [
+     0.0
+    ],
+    "pHeightBlendScaleB": [
+     0.0
+    ],
+    "pHeightOffset": [
+     0.0
+    ],
+    "pHeightScale": [
+     0.014999999664723873
+    ],
+    "pRemapLutIndex": [
+     3.0
+    ],
+    "pUVEnableProjection": [
+     1.0
+    ],
+    "pUVOffset": [
+     0.5,
+     0.5
+    ],
+    "pUVRotationAngle": [
+     0.0
+    ],
+    "pUVRotationPosition": [
+     0.0,
+     0.0
+    ],
+    "pUVTile": [
+     9.420000076293945,
+     4.53000020980835
+    ]
+   }
+  },
+  {
+   "index": 2,
+   "layer_no": 3,
+   "swatch": "Swatch_Thero_Croc_BackScales",
+   "transform_fgm": "Deinosuchus_Layer_03",
+   "used": true,
+   "increment_channel": 1,
+   "slices": {
+    "pDiffuseTexture": 27,
+    "pHeightTexture": 27,
+    "pPackedTexture": 27,
+    "pRemapTexture": 27
+   },
+   "swatch_colour_weight": 1.0,
+   "blend_texture": 0,
+   "blend_channel": "B",
+   "params": {
+    "pDiffuseContrast": [
+     0.3700000047683716
+    ],
+    "pDiffuseSaturation": [
+     1.0
+    ],
+    "pGlobalColouringWeight": [
+     1.0
+    ],
+    "pHeightBlendScaleA": [
+     0.0
+    ],
+    "pHeightBlendScaleB": [
+     0.0
+    ],
+    "pHeightOffset": [
+     0.0
+    ],
+    "pHeightScale": [
+     0.012000000104308128
+    ],
+    "pRemapLutIndex": [
+     3.0
+    ],
+    "pUVEnableProjection": [
+     1.0
+    ],
+    "pUVOffset": [
+     0.5,
+     0.5
+    ],
+    "pUVRotationAngle": [
+     0.0
+    ],
+    "pUVRotationPosition": [
+     0.0,
+     0.0
+    ],
+    "pUVTile": [
+     13.220000267028809,
+     6.96999979019165
+    ]
+   }
+  },
+  {
+   "index": 3,
+   "layer_no": 4,
+   "swatch": "Swatch_Thero_Raptor_DirectionalScales",
+   "transform_fgm": "Deinosuchus_Layer_04",
+   "used": true,
+   "increment_channel": 1,
+   "slices": {
+    "pDiffuseTexture": 37,
+    "pHeightTexture": 37,
+    "pPackedTexture": 37,
+    "pRemapTexture": 37
+   },
+   "swatch_colour_weight": 1.0,
+   "blend_texture": 0,
+   "blend_channel": "A",
+   "params": {
+    "pDiffuseContrast": [
+     0.9800000190734863
+    ],
+    "pDiffuseSaturation": [
+     1.0
+    ],
+    "pGlobalColouringWeight": [
+     1.0
+    ],
+    "pHeightBlendScaleA": [
+     0.0
+    ],
+    "pHeightBlendScaleB": [
+     0.0
+    ],
+    "pHeightOffset": [
+     0.0
+    ],
+    "pHeightScale": [
+     0.006000000052154064
+    ],
+    "pRemapLutIndex": [
+     3.0
+    ],
+    "pUVEnableProjection": [
+     0.0
+    ],
+    "pUVOffset": [
+     0.5,
+     0.5
+    ],
+    "pUVRotationAngle": [
+     0.6600000262260437
+    ],
+    "pUVRotationPosition": [
+     0.0,
+     0.0
+    ],
+    "pUVTile": [
+     18.0,
+     18.0
+    ]
+   }
+  },
+  {
+   "index": 4,
+   "layer_no": 5,
+   "swatch": "Swatch_Thero_IndominusRex_ScalesFlatLong",
+   "transform_fgm": "Deinosuchus_Layer_05",
+   "used": true,
+   "increment_channel": 1,
+   "slices": {
+    "pDiffuseTexture": 35,
+    "pHeightTexture": 35,
+    "pPackedTexture": 35,
+    "pRemapTexture": 35
+   },
+   "swatch_colour_weight": 1.0,
+   "blend_texture": 1,
+   "blend_channel": "R",
+   "params": {
+    "pDiffuseContrast": [
+     0.9800000190734863
+    ],
+    "pDiffuseSaturation": [
+     1.0
+    ],
+    "pGlobalColouringWeight": [
+     1.0
+    ],
+    "pHeightBlendScaleA": [
+     0.7599999904632568
+    ],
+    "pHeightBlendScaleB": [
+     0.12999999523162842
+    ],
+    "pHeightOffset": [
+     0.0
+    ],
+    "pHeightScale": [
+     0.019999999552965164
+    ],
+    "pRemapLutIndex": [
+     2.0
+    ],
+    "pUVEnableProjection": [
+     1.0
+    ],
+    "pUVOffset": [
+     0.5,
+     0.5
+    ],
+    "pUVRotationAngle": [
+     0.699999988079071
+    ],
+    "pUVRotationPosition": [
+     0.0,
+     0.0
+    ],
+    "pUVTile": [
+     15.0,
+     12.199999809265137
+    ]
+   }
+  },
+  {
+   "index": 5,
+   "layer_no": 6,
+   "swatch": "Swatch_Thero_IndominusRex_ScalesFlatLong",
+   "transform_fgm": "Deinosuchus_Layer_06",
+   "used": true,
+   "increment_channel": 1,
+   "slices": {
+    "pDiffuseTexture": 35,
+    "pHeightTexture": 35,
+    "pPackedTexture": 35,
+    "pRemapTexture": 35
+   },
+   "swatch_colour_weight": 1.0,
+   "blend_texture": 1,
+   "blend_channel": "G",
+   "params": {
+    "pDiffuseContrast": [
+     0.6899999976158142
+    ],
+    "pDiffuseSaturation": [
+     1.0
+    ],
+    "pGlobalColouringWeight": [
+     1.0
+    ],
+    "pHeightBlendScaleA": [
+     -10.0
+    ],
+    "pHeightBlendScaleB": [
+     10.0
+    ],
+    "pHeightOffset": [
+     0.0
+    ],
+    "pHeightScale": [
+     0.019999999552965164
+    ],
+    "pRemapLutIndex": [
+     2.0
+    ],
+    "pUVEnableProjection": [
+     1.0
+    ],
+    "pUVOffset": [
+     0.5,
+     0.5
+    ],
+    "pUVRotationAngle": [
+     -0.05999999865889549
+    ],
+    "pUVRotationPosition": [
+     0.0,
+     0.0
+    ],
+    "pUVTile": [
+     8.960000038146973,
+     11.920000076293945
+    ]
+   }
+  },
+  {
+   "index": 6,
+   "layer_no": 7,
+   "swatch": "Swatch_Thero_IndominusRex_ScalesFlatLong",
+   "transform_fgm": "Deinosuchus_Layer_07",
+   "used": true,
+   "increment_channel": 1,
+   "slices": {
+    "pDiffuseTexture": 35,
+    "pHeightTexture": 35,
+    "pPackedTexture": 35,
+    "pRemapTexture": 35
+   },
+   "swatch_colour_weight": 1.0,
+   "blend_texture": 1,
+   "blend_channel": "B",
+   "params": {
+    "pDiffuseContrast": [
+     0.5
+    ],
+    "pDiffuseSaturation": [
+     1.0
+    ],
+    "pGlobalColouringWeight": [
+     1.0
+    ],
+    "pHeightBlendScaleA": [
+     0.0
+    ],
+    "pHeightBlendScaleB": [
+     0.0
+    ],
+    "pHeightOffset": [
+     0.0
+    ],
+    "pHeightScale": [
+     0.019999999552965164
+    ],
+    "pRemapLutIndex": [
+     3.0
+    ],
+    "pUVEnableProjection": [
+     0.0
+    ],
+    "pUVOffset": [
+     0.5,
+     0.5
+    ],
+    "pUVRotationAngle": [
+     0.0
+    ],
+    "pUVRotationPosition": [
+     0.0,
+     0.0
+    ],
+    "pUVTile": [
+     8.880000114440918,
+     8.880000114440918
+    ]
+   }
+  },
+  {
+   "index": 7,
+   "layer_no": 8,
+   "swatch": "Swatch_Thero_TRex_LumpySkin",
+   "transform_fgm": "Deinosuchus_Layer_08",
+   "used": true,
+   "increment_channel": 1,
+   "slices": {
+    "pDiffuseTexture": 48,
+    "pHeightTexture": 48,
+    "pPackedTexture": 48,
+    "pRemapTexture": 48
+   },
+   "swatch_colour_weight": 1.0,
+   "blend_texture": 1,
+   "blend_channel": "A",
+   "params": {
+    "pDiffuseContrast": [
+     0.4399999976158142
+    ],
+    "pDiffuseSaturation": [
+     1.0
+    ],
+    "pGlobalColouringWeight": [
+     1.0
+    ],
+    "pHeightBlendScaleA": [
+     0.0
+    ],
+    "pHeightBlendScaleB": [
+     0.0
+    ],
+    "pHeightOffset": [
+     0.0
+    ],
+    "pHeightScale": [
+     0.012000000104308128
+    ],
+    "pRemapLutIndex": [
+     0.0
+    ],
+    "pUVEnableProjection": [
+     0.0
+    ],
+    "pUVOffset": [
+     0.5,
+     0.5
+    ],
+    "pUVRotationAngle": [
+     0.2199999988079071
+    ],
+    "pUVRotationPosition": [
+     0.0,
+     0.0
+    ],
+    "pUVTile": [
+     7.159999847412109,
+     8.0
+    ]
+   }
+  },
+  {
+   "index": 8,
+   "layer_no": 9,
+   "swatch": "Swatch_Orni_Para_SpottedSkinSide_01",
+   "transform_fgm": "Deinosuchus_Layer_09",
+   "used": true,
+   "increment_channel": 1,
+   "slices": {
+    "pDiffuseTexture": 15,
+    "pHeightTexture": 15,
+    "pPackedTexture": 15,
+    "pRemapTexture": 15
+   },
+   "swatch_colour_weight": 1.0,
+   "blend_texture": 2,
+   "blend_channel": "R",
+   "params": {
+    "pDiffuseContrast": [
+     0.41999998688697815
+    ],
+    "pDiffuseSaturation": [
+     1.0
+    ],
+    "pGlobalColouringWeight": [
+     1.0
+    ],
+    "pHeightBlendScaleA": [
+     0.0
+    ],
+    "pHeightBlendScaleB": [
+     0.0
+    ],
+    "pHeightOffset": [
+     0.0
+    ],
+    "pHeightScale": [
+     0.012000000104308128
+    ],
+    "pRemapLutIndex": [
+     7.0
+    ],
+    "pUVEnableProjection": [
+     1.0
+    ],
+    "pUVOffset": [
+     0.5,
+     0.5
+    ],
+    "pUVRotationAngle": [
+     0.0
+    ],
+    "pUVRotationPosition": [
+     0.0,
+     0.0
+    ],
+    "pUVTile": [
+     19.760000228881836,
+     19.760000228881836
+    ]
+   }
+  },
+  {
+   "index": 9,
+   "layer_no": 10,
+   "swatch": "Swatch_Thero_Raptor_DotDetail",
+   "transform_fgm": "Deinosuchus_Layer_10",
+   "used": true,
+   "increment_channel": 1,
+   "slices": {
+    "pDiffuseTexture": 38,
+    "pHeightTexture": 38,
+    "pPackedTexture": 38,
+    "pRemapTexture": 38
+   },
+   "swatch_colour_weight": 1.0,
+   "blend_texture": 2,
+   "blend_channel": "G",
+   "params": {
+    "pDiffuseContrast": [
+     0.3199999928474426
+    ],
+    "pDiffuseSaturation": [
+     1.0
+    ],
+    "pGlobalColouringWeight": [
+     1.0
+    ],
+    "pHeightBlendScaleA": [
+     -1.2899999618530273
+    ],
+    "pHeightBlendScaleB": [
+     10.0
+    ],
+    "pHeightOffset": [
+     -0.004999999888241291
+    ],
+    "pHeightScale": [
+     0.00800000037997961
+    ],
+    "pRemapLutIndex": [
+     3.0
+    ],
+    "pUVEnableProjection": [
+     0.0
+    ],
+    "pUVOffset": [
+     0.5,
+     0.5
+    ],
+    "pUVRotationAngle": [
+     0.0
+    ],
+    "pUVRotationPosition": [
+     0.0,
+     0.0
+    ],
+    "pUVTile": [
+     9.0,
+     9.0
+    ]
+   }
+  },
+  {
+   "index": 10,
+   "layer_no": 11,
+   "swatch": "Swatch_Thero_IndominusRex_ScalesFlatLong",
+   "transform_fgm": "Deinosuchus_Layer_11",
+   "used": true,
+   "increment_channel": 1,
+   "slices": {
+    "pDiffuseTexture": 35,
+    "pHeightTexture": 35,
+    "pPackedTexture": 35,
+    "pRemapTexture": 35
+   },
+   "swatch_colour_weight": 1.0,
+   "blend_texture": 2,
+   "blend_channel": "B",
+   "params": {
+    "pDiffuseContrast": [
+     1.0
+    ],
+    "pDiffuseSaturation": [
+     1.0
+    ],
+    "pGlobalColouringWeight": [
+     1.0
+    ],
+    "pHeightBlendScaleA": [
+     0.0
+    ],
+    "pHeightBlendScaleB": [
+     0.0
+    ],
+    "pHeightOffset": [
+     0.0
+    ],
+    "pHeightScale": [
+     0.019999999552965164
+    ],
+    "pRemapLutIndex": [
+     0.0
+    ],
+    "pUVEnableProjection": [
+     0.0
+    ],
+    "pUVOffset": [
+     0.5,
+     0.5
+    ],
+    "pUVRotationAngle": [
+     0.1599999964237213
+    ],
+    "pUVRotationPosition": [
+     0.0,
+     0.0
+    ],
+    "pUVTile": [
+     18.0,
+     18.0
+    ]
+   }
+  },
+  {
+   "index": 11,
+   "layer_no": 12,
+   "swatch": "Swatch_Orni_Para_SpottedSkinSide_01",
+   "transform_fgm": "Deinosuchus_Layer_12",
+   "used": true,
+   "increment_channel": 1,
+   "slices": {
+    "pDiffuseTexture": 15,
+    "pHeightTexture": 15,
+    "pPackedTexture": 15,
+    "pRemapTexture": 15
+   },
+   "swatch_colour_weight": 1.0,
+   "blend_texture": 2,
+   "blend_channel": "A",
+   "params": {
+    "pDiffuseContrast": [
+     0.41999998688697815
+    ],
+    "pDiffuseSaturation": [
+     1.0
+    ],
+    "pGlobalColouringWeight": [
+     1.0
+    ],
+    "pHeightBlendScaleA": [
+     0.0
+    ],
+    "pHeightBlendScaleB": [
+     0.0
+    ],
+    "pHeightOffset": [
+     0.0
+    ],
+    "pHeightScale": [
+     0.014999999664723873
+    ],
+    "pRemapLutIndex": [
+     7.0
+    ],
+    "pUVEnableProjection": [
+     1.0
+    ],
+    "pUVOffset": [
+     0.5,
+     0.5
+    ],
+    "pUVRotationAngle": [
+     0.0
+    ],
+    "pUVRotationPosition": [
+     0.0,
+     0.0
+    ],
+    "pUVTile": [
+     11.699999809265137,
+     11.699999809265137
+    ]
+   }
+  },
+  {
+   "index": 12,
+   "layer_no": 13,
+   "swatch": "Swatch_Sauro_Brachio_NeckSkin",
+   "transform_fgm": "Deinosuchus_Layer_13",
+   "used": true,
+   "increment_channel": 1,
+   "slices": {
+    "pDiffuseTexture": 24,
+    "pHeightTexture": 24,
+    "pPackedTexture": 24,
+    "pRemapTexture": 24
+   },
+   "swatch_colour_weight": 1.0,
+   "blend_texture": 3,
+   "blend_channel": "R",
+   "params": {
+    "pDiffuseContrast": [
+     1.0
+    ],
+    "pDiffuseSaturation": [
+     1.0
+    ],
+    "pGlobalColouringWeight": [
+     1.0
+    ],
+    "pHeightBlendScaleA": [
+     0.0
+    ],
+    "pHeightBlendScaleB": [
+     0.0
+    ],
+    "pHeightOffset": [
+     0.0
+    ],
+    "pHeightScale": [
+     0.05000000074505806
+    ],
+    "pRemapLutIndex": [
+     0.0
+    ],
+    "pUVEnableProjection": [
+     0.0
+    ],
+    "pUVOffset": [
+     0.5,
+     0.5
+    ],
+    "pUVRotationAngle": [
+     0.0
+    ],
+    "pUVRotationPosition": [
+     0.0,
+     0.0
+    ],
+    "pUVTile": [
+     2.5,
+     1.559999942779541
+    ]
+   }
+  },
+  {
+   "index": 13,
+   "layer_no": 14,
+   "swatch": "Swatch_Sauro_Brachio_NeckSkin",
+   "transform_fgm": "Deinosuchus_Layer_14",
+   "used": true,
+   "increment_channel": 1,
+   "slices": {
+    "pDiffuseTexture": 24,
+    "pHeightTexture": 24,
+    "pPackedTexture": 24,
+    "pRemapTexture": 24
+   },
+   "swatch_colour_weight": 1.0,
+   "blend_texture": 3,
+   "blend_channel": "G",
+   "params": {
+    "pDiffuseContrast": [
+     1.0
+    ],
+    "pDiffuseSaturation": [
+     1.0
+    ],
+    "pGlobalColouringWeight": [
+     1.0
+    ],
+    "pHeightBlendScaleA": [
+     0.0
+    ],
+    "pHeightBlendScaleB": [
+     0.0
+    ],
+    "pHeightOffset": [
+     0.0
+    ],
+    "pHeightScale": [
+     0.04500000178813934
+    ],
+    "pRemapLutIndex": [
+     0.0
+    ],
+    "pUVEnableProjection": [
+     0.0
+    ],
+    "pUVOffset": [
+     0.5,
+     0.5
+    ],
+    "pUVRotationAngle": [
+     0.6200000047683716
+    ],
+    "pUVRotationPosition": [
+     0.0,
+     0.0
+    ],
+    "pUVTile": [
+     2.5,
+     1.559999942779541
+    ]
+   }
+  },
+  {
+   "index": 14,
+   "layer_no": 15,
+   "swatch": "Swatch_Bone",
+   "transform_fgm": "Deinosuchus_Layer_15",
+   "used": true,
+   "increment_channel": 1,
+   "slices": {
+    "pDiffuseTexture": 5,
+    "pHeightTexture": 5,
+    "pPackedTexture": 5,
+    "pRemapTexture": 5
+   },
+   "swatch_colour_weight": 0.0,
+   "blend_texture": 3,
+   "blend_channel": "B",
+   "params": {
+    "pDiffuseContrast": [
+     0.4399999976158142
+    ],
+    "pDiffuseSaturation": [
+     1.0
+    ],
+    "pGlobalColouringWeight": [
+     0.0
+    ],
+    "pHeightBlendScaleA": [
+     0.0
+    ],
+    "pHeightBlendScaleB": [
+     0.0
+    ],
+    "pHeightOffset": [
+     0.0
+    ],
+    "pHeightScale": [
+     0.0010000000474974513
+    ],
+    "pRemapLutIndex": [
+     4.0
+    ],
+    "pUVEnableProjection": [
+     0.0
+    ],
+    "pUVOffset": [
+     0.5,
+     0.5
+    ],
+    "pUVRotationAngle": [
+     0.0
+    ],
+    "pUVRotationPosition": [
+     0.0,
+     0.0
+    ],
+    "pUVTile": [
+     16.1200008392334,
+     20.040000915527344
+    ]
+   }
+  },
+  {
+   "index": 15,
+   "layer_no": 16,
+   "swatch": "Swatch_Mouth_Flesh",
+   "transform_fgm": "Deinosuchus_Layer_16",
+   "used": true,
+   "increment_channel": 1,
+   "slices": {
+    "pDiffuseTexture": 10,
+    "pHeightTexture": 10,
+    "pPackedTexture": 10,
+    "pRemapTexture": 10
+   },
+   "swatch_colour_weight": 0.0,
+   "blend_texture": 3,
+   "blend_channel": "A",
+   "params": {
+    "pDiffuseContrast": [
+     0.550000011920929
+    ],
+    "pDiffuseSaturation": [
+     1.0
+    ],
+    "pGlobalColouringWeight": [
+     1.0
+    ],
+    "pHeightBlendScaleA": [
+     0.0
+    ],
+    "pHeightBlendScaleB": [
+     0.0
+    ],
+    "pHeightOffset": [
+     0.0
+    ],
+    "pHeightScale": [
+     0.02500000037252903
+    ],
+    "pRemapLutIndex": [
+     1.0
+    ],
+    "pUVEnableProjection": [
+     1.0
+    ],
+    "pUVOffset": [
+     0.5,
+     0.5
+    ],
+    "pUVRotationAngle": [
+     0.0
+    ],
+    "pUVRotationPosition": [
+     0.0,
+     0.0
+    ],
+    "pUVTile": [
+     20.0,
+     20.0
+    ]
+   }
+  }
+ ]
+}

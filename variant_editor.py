@@ -96,6 +96,21 @@ class EditorController:
         diffuse swap over the same layer stack -- so it is adopted as the skin for the next Build
         rather than loaded as a variant.
         """
+        # Route per-layer and shared swatch materials to their own editor instead of rejecting
+        # them as malformed variants. The Material FGM tab owns its own Save/Save As actions.
+        try:
+            from material_fgm import MaterialFgm
+            material = MaterialFgm.load(path)
+        except ValueError:
+            material = None
+        except Exception:
+            material = None
+        if material is not None and getattr(self.window, "material_fgm_tab", None) is not None:
+            self.window.material_fgm_tab.load_path(path)
+            self.window.tabs.setCurrentWidget(self.window.material_fgm_tab)
+            self.window.statusBar().showMessage(
+                "opened material FGM %s (%s)" % (os.path.basename(path), material.shader))
+            return material
         if fgm_io.is_variantset_fgm(path):
             return self.do_open_variantset(path)
         model = fgm_io.load_fgm(path)

@@ -165,7 +165,20 @@ def selftest():
     import os
     import sys
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    from preview_bridge import model_to_block
+    try:
+        from preview_bridge import model_to_block
+    except Exception as e:
+        # `preview_bridge` reaches cobra-tools transitively -- coeff_store -> export_palette ->
+        # variant_reader -> reader_kit -- and `reader_kit` resolves the repo at IMPORT time, so
+        # merely importing it fails where cobra-tools is absent. CI is exactly that environment.
+        #
+        # The workflow already excludes preview_bridge for this reason; it just could not know
+        # that palette_preview imports it. Skip like the other data-dependent selftests here do,
+        # and re-raise anything that is NOT the missing dependency -- a real break must still fail.
+        if "cobra-tools" not in str(e):
+            raise
+        print("selftest ok (cobra-tools not available, skipped the ramp tests)")
+        return
     from variant_model import VariantModel
 
     # a harvested seed -> a real, varying ramp

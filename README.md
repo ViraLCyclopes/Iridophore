@@ -269,6 +269,20 @@ Slider ranges are defaults taken from a survey of 40 shipped variant FGMs, not h
 whose value sits outside a range widens that slider instead of being clamped, so opening and saving
 a variant never alters a value you did not touch.
 
+### Layer and swatch material FGMs
+
+The **Material FGMs** tab opens both `<species>_layer_NN.fgm`
+(`DinosaurLayered_Layer`) and shared scale/swatch FGMs
+(`DinosaurLayered_Swatch_Opaque`). It exposes every attribute and each texture
+array index, including fields the preview does not yet render. Each row is marked
+confirmed, inferred, or unresolved; unresolved values are preserved during save.
+
+Height scale, height offset, height-blend A/B, UV tile/offset/rotation, remap row,
+diffuse saturation/contrast, and global colouring weight are mapped. Projection is
+still shown as unresolved because both the old Cobra material importer and the JWE3
+preview currently omit its generated/triplanar coordinate path. Editing the flag is
+allowed, but the Blender preview does not pretend to reproduce it yet.
+
 ## What to extract for a species
 
 Extract a species into **one folder** and import from there. The folder needs all of this:

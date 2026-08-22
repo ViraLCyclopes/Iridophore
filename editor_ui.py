@@ -582,6 +582,13 @@ class VariantEditorWindow(QtWidgets.QMainWindow):
         self.tabs = QtWidgets.QTabWidget()
         self.tabs.addTab(self.scroll, "Variant")
         try:
+            from material_fgm_tab import MaterialFgmTab
+            self.material_fgm_tab = MaterialFgmTab()
+            self.tabs.addTab(self.material_fgm_tab, "Material FGMs")
+        except Exception as e:
+            self.material_fgm_tab = None
+            print("material FGM tab unavailable: %s: %s" % (type(e).__name__, e))
+        try:
             from pattern_tab import PatternTab
             self.pattern_tab = PatternTab()
             self.pattern_tab.changed.connect(self._on_pattern_changed)
