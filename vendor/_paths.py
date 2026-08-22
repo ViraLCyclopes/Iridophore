@@ -6,8 +6,9 @@ the package they must not reach outside it, so every path they need is resolved 
 
     ../data/        shipped data (gradient_coefficients.json, swatch_params.json) -- our own
                     measurements, safe to distribute
-    (swatches)      game textures the USER supplies, from a folder they configure -- NOT packaged.
-                    Set it in `setup_gui.py` (Swatch Library) or via JWE3_SWATCH_DIR.
+    (swatches)      game/custom textures the USER supplies, from ordered folders they configure --
+                    NOT packaged. Set them in `setup_gui.py` or separate JWE3_SWATCH_DIR entries
+                    with the platform path separator (`;` on Windows).
     ../LayerJSON/   generated on demand, written inside the package
     ../PaletteJSON/ likewise
 
@@ -53,6 +54,18 @@ def swatch_dir():
     return _config("swatch_dir")
 
 
+def swatch_dirs():
+    """Every configured scale/swatch library, highest priority first."""
+    if PKG not in sys.path:
+        sys.path.insert(0, PKG)
+    try:
+        import jwe3_config
+        return jwe3_config.get_dirs("swatch_dir")
+    except Exception:
+        one = swatch_dir()
+        return [one] if one and os.path.isdir(one) else []
+
+
 def shipped_layerjson_dir():
     """The LayerJSONs that ship INSIDE the package. Read-only baseline, always searched last."""
     d = os.path.join(PKG, "LayerJSON")
@@ -92,6 +105,10 @@ def layerjson_dirs():
         dirs.extend(jwe3_config.get_dirs("layerjson_dir"))
     except Exception:
         pass
+    shipped = os.path.normcase(os.path.abspath(shipped_layerjson_dir()))
+    # A legacy config may explicitly point at the shipped directory. It is still the baseline and
+    # must remain last; otherwise the auto-created per-user folder can never override it.
+    dirs = [d for d in dirs if d and os.path.normcase(os.path.abspath(d)) != shipped]
     dirs.append(shipped_layerjson_dir())
     out, seen = [], set()
     for d in dirs:

@@ -18,6 +18,13 @@
     "pRemapTexture": 6
    },
    "swatch_colour_weight": 1.0,
+   "swatch_library": "D:\\JWE2 Stuff\\Personal Mods\\JWE3\\Images and Models\\Dinosaurs\\SwatchLibrary",
+   "swatch_textures": {
+    "pDiffuseTexture": "swatch_anky_ankylo_backplates.pdiffusetexture.tex",
+    "pHeightTexture": "swatch_anky_ankylo_backplates.pheighttexture.tex",
+    "pPackedTexture": "swatch_anky_ankylo_backplates.ppackedtexture.tex",
+    "pRemapTexture": "swatch_anky_ankylo_backplates.premaptexture.tex"
+   },
    "blend_texture": 0,
    "blend_channel": "R",
    "params": {
@@ -79,6 +86,13 @@
     "pRemapTexture": 27
    },
    "swatch_colour_weight": 1.0,
+   "swatch_library": "D:\\JWE2 Stuff\\Personal Mods\\JWE3\\Images and Models\\Dinosaurs\\SwatchLibrary",
+   "swatch_textures": {
+    "pDiffuseTexture": "swatch_anky_ankylo_backplates.pdiffusetexture.tex",
+    "pHeightTexture": "swatch_anky_ankylo_backplates.pheighttexture.tex",
+    "pPackedTexture": "swatch_anky_ankylo_backplates.ppackedtexture.tex",
+    "pRemapTexture": "swatch_anky_ankylo_backplates.premaptexture.tex"
+   },
    "blend_texture": 0,
    "blend_channel": "G",
    "params": {
@@ -140,6 +154,13 @@
     "pRemapTexture": 27
    },
    "swatch_colour_weight": 1.0,
+   "swatch_library": "D:\\JWE2 Stuff\\Personal Mods\\JWE3\\Images and Models\\Dinosaurs\\SwatchLibrary",
+   "swatch_textures": {
+    "pDiffuseTexture": "swatch_anky_ankylo_backplates.pdiffusetexture.tex",
+    "pHeightTexture": "swatch_anky_ankylo_backplates.pheighttexture.tex",
+    "pPackedTexture": "swatch_anky_ankylo_backplates.ppackedtexture.tex",
+    "pRemapTexture": "swatch_anky_ankylo_backplates.premaptexture.tex"
+   },
    "blend_texture": 0,
    "blend_channel": "B",
    "params": {
@@ -201,6 +222,13 @@
     "pRemapTexture": 37
    },
    "swatch_colour_weight": 1.0,
+   "swatch_library": "D:\\JWE2 Stuff\\Personal Mods\\JWE3\\Images and Models\\Dinosaurs\\SwatchLibrary",
+   "swatch_textures": {
+    "pDiffuseTexture": "swatch_anky_ankylo_backplates.pdiffusetexture.tex",
+    "pHeightTexture": "swatch_anky_ankylo_backplates.pheighttexture.tex",
+    "pPackedTexture": "swatch_anky_ankylo_backplates.ppackedtexture.tex",
+    "pRemapTexture": "swatch_anky_ankylo_backplates.premaptexture.tex"
+   },
    "blend_texture": 0,
    "blend_channel": "A",
    "params": {
@@ -262,6 +290,13 @@
     "pRemapTexture": 35
    },
    "swatch_colour_weight": 1.0,
+   "swatch_library": "D:\\JWE2 Stuff\\Personal Mods\\JWE3\\Images and Models\\Dinosaurs\\SwatchLibrary",
+   "swatch_textures": {
+    "pDiffuseTexture": "swatch_anky_ankylo_backplates.pdiffusetexture.tex",
+    "pHeightTexture": "swatch_anky_ankylo_backplates.pheighttexture.tex",
+    "pPackedTexture": "swatch_anky_ankylo_backplates.ppackedtexture.tex",
+    "pRemapTexture": "swatch_anky_ankylo_backplates.premaptexture.tex"
+   },
    "blend_texture": 1,
    "blend_channel": "R",
    "params": {
@@ -323,6 +358,13 @@
     "pRemapTexture": 35
    },
    "swatch_colour_weight": 1.0,
+   "swatch_library": "D:\\JWE2 Stuff\\Personal Mods\\JWE3\\Images and Models\\Dinosaurs\\SwatchLibrary",
+   "swatch_textures": {
+    "pDiffuseTexture": "swatch_anky_ankylo_backplates.pdiffusetexture.tex",
+    "pHeightTexture": "swatch_anky_ankylo_backplates.pheighttexture.tex",
+    "pPackedTexture": "swatch_anky_ankylo_backplates.ppackedtexture.tex",
+    "pRemapTexture": "swatch_anky_ankylo_backplates.premaptexture.tex"
+   },
    "blend_texture": 1,
    "blend_channel": "G",
    "params": {
@@ -384,6 +426,13 @@
     "pRemapTexture": 35
    },
    "swatch_colour_weight": 1.0,
+   "swatch_library": "D:\\JWE2 Stuff\\Personal Mods\\JWE3\\Images and Models\\Dinosaurs\\SwatchLibrary",
+   "swatch_textures": {
+    "pDiffuseTexture": "swatch_anky_ankylo_backplates.pdiffusetexture.tex",
+    "pHeightTexture": "swatch_anky_ankylo_backplates.pheighttexture.tex",
+    "pPackedTexture": "swatch_anky_ankylo_backplates.ppackedtexture.tex",
+    "pRemapTexture": "swatch_anky_ankylo_backplates.premaptexture.tex"
+   },
    "blend_texture": 1,
    "blend_channel": "B",
    "params": {
@@ -445,6 +494,13 @@
     "pRemapTexture": 48
    },
    "swatch_colour_weight": 1.0,
+   "swatch_library": "D:\\JWE2 Stuff\\Personal Mods\\JWE3\\Images and Models\\Dinosaurs\\SwatchLibrary",
+   "swatch_textures": {
+    "pDiffuseTexture": "swatch_anky_ankylo_backplates.pdiffusetexture.tex",
+    "pHeightTexture": "swatch_anky_ankylo_backplates.pheighttexture.tex",
+    "pPackedTexture": "swatch_anky_ankylo_backplates.ppackedtexture.tex",
+    "pRemapTexture": "swatch_anky_ankylo_backplates.premaptexture.tex"
+   },
    "blend_texture": 1,
    "blend_channel": "A",
    "params": {
@@ -506,6 +562,13 @@
     "pRemapTexture": 15
    },
    "swatch_colour_weight": 1.0,
+   "swatch_library": "D:\\JWE2 Stuff\\Personal Mods\\JWE3\\Images and Models\\Dinosaurs\\SwatchLibrary",
+   "swatch_textures": {
+    "pDiffuseTexture": "swatch_anky_ankylo_backplates.pdiffusetexture.tex",
+    "pHeightTexture": "swatch_anky_ankylo_backplates.pheighttexture.tex",
+    "pPackedTexture": "swatch_anky_ankylo_backplates.ppackedtexture.tex",
+    "pRemapTexture": "swatch_anky_ankylo_backplates.premaptexture.tex"
+   },
    "blend_texture": 2,
    "blend_channel": "R",
    "params": {
@@ -567,6 +630,13 @@
     "pRemapTexture": 38
    },
    "swatch_colour_weight": 1.0,
+   "swatch_library": "D:\\JWE2 Stuff\\Personal Mods\\JWE3\\Images and Models\\Dinosaurs\\SwatchLibrary",
+   "swatch_textures": {
+    "pDiffuseTexture": "swatch_anky_ankylo_backplates.pdiffusetexture.tex",
+    "pHeightTexture": "swatch_anky_ankylo_backplates.pheighttexture.tex",
+    "pPackedTexture": "swatch_anky_ankylo_backplates.ppackedtexture.tex",
+    "pRemapTexture": "swatch_anky_ankylo_backplates.premaptexture.tex"
+   },
    "blend_texture": 2,
    "blend_channel": "G",
    "params": {
@@ -628,6 +698,13 @@
     "pRemapTexture": 35
    },
    "swatch_colour_weight": 1.0,
+   "swatch_library": "D:\\JWE2 Stuff\\Personal Mods\\JWE3\\Images and Models\\Dinosaurs\\SwatchLibrary",
+   "swatch_textures": {
+    "pDiffuseTexture": "swatch_anky_ankylo_backplates.pdiffusetexture.tex",
+    "pHeightTexture": "swatch_anky_ankylo_backplates.pheighttexture.tex",
+    "pPackedTexture": "swatch_anky_ankylo_backplates.ppackedtexture.tex",
+    "pRemapTexture": "swatch_anky_ankylo_backplates.premaptexture.tex"
+   },
    "blend_texture": 2,
    "blend_channel": "B",
    "params": {
@@ -689,6 +766,13 @@
     "pRemapTexture": 15
    },
    "swatch_colour_weight": 1.0,
+   "swatch_library": "D:\\JWE2 Stuff\\Personal Mods\\JWE3\\Images and Models\\Dinosaurs\\SwatchLibrary",
+   "swatch_textures": {
+    "pDiffuseTexture": "swatch_anky_ankylo_backplates.pdiffusetexture.tex",
+    "pHeightTexture": "swatch_anky_ankylo_backplates.pheighttexture.tex",
+    "pPackedTexture": "swatch_anky_ankylo_backplates.ppackedtexture.tex",
+    "pRemapTexture": "swatch_anky_ankylo_backplates.premaptexture.tex"
+   },
    "blend_texture": 2,
    "blend_channel": "A",
    "params": {
@@ -750,6 +834,13 @@
     "pRemapTexture": 24
    },
    "swatch_colour_weight": 1.0,
+   "swatch_library": "D:\\JWE2 Stuff\\Personal Mods\\JWE3\\Images and Models\\Dinosaurs\\SwatchLibrary",
+   "swatch_textures": {
+    "pDiffuseTexture": "swatch_anky_ankylo_backplates.pdiffusetexture.tex",
+    "pHeightTexture": "swatch_anky_ankylo_backplates.pheighttexture.tex",
+    "pPackedTexture": "swatch_anky_ankylo_backplates.ppackedtexture.tex",
+    "pRemapTexture": "swatch_anky_ankylo_backplates.premaptexture.tex"
+   },
    "blend_texture": 3,
    "blend_channel": "R",
    "params": {
@@ -811,6 +902,13 @@
     "pRemapTexture": 24
    },
    "swatch_colour_weight": 1.0,
+   "swatch_library": "D:\\JWE2 Stuff\\Personal Mods\\JWE3\\Images and Models\\Dinosaurs\\SwatchLibrary",
+   "swatch_textures": {
+    "pDiffuseTexture": "swatch_anky_ankylo_backplates.pdiffusetexture.tex",
+    "pHeightTexture": "swatch_anky_ankylo_backplates.pheighttexture.tex",
+    "pPackedTexture": "swatch_anky_ankylo_backplates.ppackedtexture.tex",
+    "pRemapTexture": "swatch_anky_ankylo_backplates.premaptexture.tex"
+   },
    "blend_texture": 3,
    "blend_channel": "G",
    "params": {
@@ -872,6 +970,13 @@
     "pRemapTexture": 5
    },
    "swatch_colour_weight": 0.0,
+   "swatch_library": "D:\\JWE2 Stuff\\Personal Mods\\JWE3\\Images and Models\\Dinosaurs\\SwatchLibrary",
+   "swatch_textures": {
+    "pDiffuseTexture": "swatch_anky_ankylo_backplates.pdiffusetexture.tex",
+    "pHeightTexture": "swatch_anky_ankylo_backplates.pheighttexture.tex",
+    "pPackedTexture": "swatch_anky_ankylo_backplates.ppackedtexture.tex",
+    "pRemapTexture": "swatch_anky_ankylo_backplates.premaptexture.tex"
+   },
    "blend_texture": 3,
    "blend_channel": "B",
    "params": {
@@ -933,6 +1038,13 @@
     "pRemapTexture": 10
    },
    "swatch_colour_weight": 0.0,
+   "swatch_library": "D:\\JWE2 Stuff\\Personal Mods\\JWE3\\Images and Models\\Dinosaurs\\SwatchLibrary",
+   "swatch_textures": {
+    "pDiffuseTexture": "swatch_anky_ankylo_backplates.pdiffusetexture.tex",
+    "pHeightTexture": "swatch_anky_ankylo_backplates.pheighttexture.tex",
+    "pPackedTexture": "swatch_anky_ankylo_backplates.ppackedtexture.tex",
+    "pRemapTexture": "swatch_anky_ankylo_backplates.premaptexture.tex"
+   },
    "blend_texture": 3,
    "blend_channel": "A",
    "params": {

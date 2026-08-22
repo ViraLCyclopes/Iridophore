@@ -36,10 +36,6 @@ ROWS = [
     ("cobra_tools", "cobra-tools",
      "Your cobra-tools checkout. Normally detected from the Blender add-on you already have "
      "installed, so you rarely need to set this."),
-    ("swatch_dir", "Swatch Library",
-     "Where you unpacked SwatchLibrary.ovl's PNGs. Game data, so it is never shipped or "
-     "auto-extracted, and it is NOT packaged with this software -- you must set it here. "
-     "Unpack SwatchLibrary.ovl with cobra-tools and point this at the folder of PNGs."),
 ]
 
 
@@ -67,6 +63,26 @@ class SetupWindow(QtWidgets.QDialog):
         for key, label, help_text in ROWS:
             form.addRow(self._label(label, help_text), self._row(key))
         lay.addLayout(form)
+
+        scale_box = QtWidgets.QGroupBox("Scale / swatch libraries (first match wins)")
+        scale_lay = QtWidgets.QVBoxLayout(scale_box)
+        self.swatch_list = QtWidgets.QListWidget()
+        self.swatch_list.setToolTip(
+            "Add the extracted base SwatchLibrary and any custom library Source folders. "
+            "Each folder must contain its swatch .fgm files and extracted array-slice PNGs.")
+        scale_lay.addWidget(self.swatch_list)
+        scale_buttons = QtWidgets.QHBoxLayout()
+        for text, callback in (("Add folder...", self._add_swatch),
+                               ("Remove", self._remove_swatch),
+                               ("Move up", lambda: self._move_swatch(-1)),
+                               ("Move down", lambda: self._move_swatch(1)),
+                               ("Auto", self._auto_swatches)):
+            button = QtWidgets.QPushButton(text)
+            button.clicked.connect(callback)
+            scale_buttons.addWidget(button)
+        scale_buttons.addStretch(1)
+        scale_lay.addLayout(scale_buttons)
+        lay.addWidget(scale_box)
 
         self.games_box = QtWidgets.QGroupBox("Game installs found")
         gl = QtWidgets.QVBoxLayout(self.games_box)
@@ -118,6 +134,34 @@ class SetupWindow(QtWidgets.QDialog):
         return w
 
     # -- actions -----------------------------------------------------------
+    def _swatch_paths(self):
+        return [self.swatch_list.item(i).text() for i in range(self.swatch_list.count())]
+
+    def _add_swatch(self):
+        start = (self._swatch_paths() or cfg.get_dirs("swatch_dir") or [""])[-1]
+        d = QtWidgets.QFileDialog.getExistingDirectory(self, "Select scale library folder", start)
+        if d and os.path.normcase(os.path.abspath(d)) not in {
+                os.path.normcase(os.path.abspath(p)) for p in self._swatch_paths()}:
+            self.swatch_list.addItem(os.path.abspath(d))
+
+    def _remove_swatch(self):
+        row = self.swatch_list.currentRow()
+        if row >= 0:
+            self.swatch_list.takeItem(row)
+
+    def _move_swatch(self, delta):
+        row = self.swatch_list.currentRow()
+        dest = row + delta
+        if row >= 0 and 0 <= dest < self.swatch_list.count():
+            item = self.swatch_list.takeItem(row)
+            self.swatch_list.insertItem(dest, item)
+            self.swatch_list.setCurrentRow(dest)
+
+    def _auto_swatches(self):
+        self.swatch_list.clear()
+        cfg.write(swatch_dir=None)
+        self.refresh()
+
     def _browse(self, key):
         start = self._edits[key].text() or cfg.get(key) or ""
         d = QtWidgets.QFileDialog.getExistingDirectory(self, "Select folder", start)
@@ -155,6 +199,11 @@ class SetupWindow(QtWidgets.QDialog):
             if text and not os.path.isdir(text):
                 return None, "This is not a folder that exists:\n\n%s" % text
             values[key] = text or None          # blank -> back to auto-detect
+        paths = self._swatch_paths()
+        for path in paths:
+            if not os.path.isdir(path):
+                return None, "This scale library folder does not exist:\n\n%s" % path
+        values["swatch_dir"] = os.pathsep.join(paths) or None
         return values, None
 
     def save(self, interactive=True):
@@ -175,11 +224,19 @@ class SetupWindow(QtWidgets.QDialog):
         if not keep_edits:
             for key, edit in self._edits.items():
                 edit.setText(stored.get(key, "") or "")
+            self.swatch_list.clear()
+            raw = stored.get("swatch_dir", "") or ""
+            paths = [p.strip() for p in raw.split(os.pathsep) if p.strip()]
+            if not paths:
+                paths = cfg.get_dirs("swatch_dir")
+            self.swatch_list.addItems(paths)
 
         lines = []
         for key, label, _help in ROWS:
             value, src = cfg.get(key), cfg.source(key)
             lines.append("%s: %s  [%s]" % (label, value or "NOT FOUND", src))
+        swatches = cfg.get_dirs("swatch_dir")
+        lines.append("Scale libraries: %d  [%s]" % (len(swatches), cfg.source("swatch_dir")))
         self.status.setText("   ·   ".join(lines))
 
         self.games_list.clear()
@@ -231,23 +288,23 @@ def selftest():
     try:
         app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])   # noqa: F841
         w = SetupWindow()
-        assert set(w._edits) == set(cfg.KEYS)
+        assert set(w._edits) == {r[0] for r in ROWS}
 
         # a real folder saves, and is then reported as coming from the config
         d = tempfile.mkdtemp()
-        w._edits["swatch_dir"].setText(d)
+        w.swatch_list.clear(); w.swatch_list.addItem(d)
         assert w.save(interactive=False) is True
         assert cfg.read().get("swatch_dir") == d, cfg.read()
         assert cfg.source("swatch_dir") == "config"
 
         # a bogus path must be refused, not written
-        w._edits["swatch_dir"].setText("Z:\\nope\\nope")
+        w.swatch_list.clear(); w.swatch_list.addItem("Z:\\nope\\nope")
         assert w.save(interactive=False) is False
         assert cfg.read().get("swatch_dir") == d, "invalid path must not overwrite a good one"
-        w._edits["swatch_dir"].setText(d)
+        w.swatch_list.clear(); w.swatch_list.addItem(d)
 
         # clearing a row returns it to auto-detection
-        w._clear("swatch_dir")
+        w._auto_swatches()
         assert "swatch_dir" not in cfg.read()
         assert cfg.source("swatch_dir") in ("detected", "missing")
 

@@ -53,6 +53,7 @@ Then inside Blender:          build_from_json(".../LayerJSON/Lokiceratops_Female
 import json
 import math
 import os
+import xml.etree.ElementTree as ET
 
 import bpy
 
@@ -60,7 +61,6 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 import _paths  # noqa: E402  (vendored: replaces a hard-coded absolute path that only ever
                # resolved on one machine -- the Swatch Library now comes from the shared config)
 import part_manifest  # noqa: E402  (fgm_slots / texture_files -- name-driven texture resolution)
-SWATCH_DIR = _paths.swatch_dir()
 
 
 def find_base_fgm(tex_dir, prefix):
@@ -82,6 +82,17 @@ def find_base_fgm(tex_dir, prefix):
 # All 54 slices of each shared array texture carry ONE filename prefix -- the name of whichever
 # swatch the array happens to be attributed to. Only `array_index` picks the slice.
 ARRAY_PREFIX = "swatch_anky_ankylo_backplates"
+
+# Fallback for direct script calls that do not supply mesh bounds. The Blender listener supplies
+# the model-derived value: object position is centred and divided by the model radius before tile.
+DEFAULT_PROJECTION_POSITION_SCALE = 1.0
+
+# Blender's BOX mode performs the three projected samples inside one texture node.  A modest
+# blend avoids the hard plane boundaries produced by 0.0 without expanding every projected
+# layer into nine texture nodes. The expanded prototype rendered black in Blender 4.5, but that
+# result has NOT been established as a Cycles complexity limit; invalid graph maths or a bad
+# intermediate remains possible. This is a compact viewport approximation of shader 0300's blend.
+PROJECTION_BLEND = 0.25
 
 SHARPNESS = 2.0e4       # %1885: (h*B - prevHeight*A) * 20000
 
@@ -458,14 +469,93 @@ def _layer_uv(nt, uv_out, p, x, y):
     return post.outputs[0]
 
 
-def _slice_path(idx, slot, suffix=""):
+def _layer_projection(nt, object_out, p, x, y, position_scale, position_center):
+    """Build centred, radius-normalised object coordinates for Blender BOX projection."""
+    off = p.get("pUVOffset", [0.0, 0.0])
+    tile = p.get("pUVTile", [1.0, 1.0])
+    pivot = p.get("pUVRotationPosition", [0.0, 0.0])
+    angle = p.get("pUVRotationAngle", [0.0])[0] * math.pi
+    centre = nt.nodes.new("ShaderNodeVectorMath")
+    centre.operation = "SUBTRACT"
+    centre.location = (x, y)
+    nt.links.new(object_out, centre.inputs[0])
+    centre.inputs[1].default_value = tuple(position_center)
+    pre = nt.nodes.new("ShaderNodeVectorMath")
+    pre.operation = "MULTIPLY_ADD"
+    pre.location = (x + 190, y)
+    nt.links.new(centre.outputs[0], pre.inputs[0])
+    pre.inputs[1].default_value = (tile[0] * position_scale,
+                                   tile[1] * position_scale,
+                                   max(tile) * position_scale)
+    pre.inputs[2].default_value = (-off[0] * tile[0] - pivot[0],
+                                   -off[1] * tile[1] - pivot[1], 0.0)
+    rot = nt.nodes.new("ShaderNodeVectorRotate")
+    rot.rotation_type = "Z_AXIS"
+    rot.location = (x + 380, y)
+    nt.links.new(pre.outputs[0], rot.inputs["Vector"])
+    rot.inputs["Angle"].default_value = angle
+    post = nt.nodes.new("ShaderNodeVectorMath")
+    post.operation = "ADD"
+    post.location = (x + 570, y)
+    nt.links.new(rot.outputs[0], post.inputs[0])
+    post.inputs[1].default_value = (pivot[0], pivot[1], 0.0)
+    return post.outputs[0]
+
+
+_SWATCH_LOOKUP = {}
+
+
+def _legacy_swatch_info(name):
+    """Resolve old LayerJSONs that predate embedded custom-library metadata."""
+    key = (name or "").lower()
+    if key in _SWATCH_LOOKUP:
+        return _SWATCH_LOOKUP[key]
+    want = key + ("" if key.endswith(".fgm") else ".fgm")
+    for folder in _paths.swatch_dirs():
+        try:
+            match = next((f for f in os.listdir(folder) if f.lower() == want), None)
+            if not match:
+                continue
+            root = ET.parse(os.path.join(folder, match)).getroot()
+            textures = {n.get("name", ""): (n.findtext("dependency_name") or "").strip()
+                        for n in root.findall("./textures/textureinfo")}
+            _SWATCH_LOOKUP[key] = (folder, textures)
+            return _SWATCH_LOOKUP[key]
+        except (OSError, ET.ParseError):
+            continue
+    _SWATCH_LOOKUP[key] = (None, {})
+    return _SWATCH_LOOKUP[key]
+
+
+def _slice_path(layer, slot, suffix=""):
+    idx = layer.get("slices", {}).get(slot)
     if idx is None or idx < 0 or idx > 254:
         return None
-    p = os.path.join(SWATCH_DIR, f"{ARRAY_PREFIX}.{slot}_[{idx:02d}]{suffix}.png")
-    return p if os.path.isfile(p) else None
+    preferred = layer.get("swatch_library")
+    dependencies = layer.get("swatch_textures", {})
+    if not preferred or not dependencies:
+        old_folder, old_dependencies = _legacy_swatch_info(layer.get("swatch"))
+        preferred = preferred or old_folder
+        dependencies = dependencies or old_dependencies
+    dependency = dependencies.get(slot, "")
+    prefix = os.path.splitext(dependency)[0] if dependency else f"{ARRAY_PREFIX}.{slot.lower()}"
+    folders = ([preferred] if preferred else []) + _paths.swatch_dirs()
+    seen = set()
+    for folder in folders:
+        if not folder:
+            continue
+        key = os.path.normcase(os.path.abspath(folder))
+        if key in seen:
+            continue
+        seen.add(key)
+        p = os.path.join(folder, f"{prefix}_[{idx:02d}]{suffix}.png")
+        if os.path.isfile(p):
+            return p
+    return None
 
 
-def layer_group(L, mask_path, name):
+def layer_group(L, mask_path, name, projection_position_scale=DEFAULT_PROJECTION_POSITION_SCALE,
+                projection_position_center=(0.0, 0.0, 0.0)):
     """One whole layer as a self-contained node group, so the material is a readable chain of 16.
 
     A group cannot take an image as an input socket -- images are node properties -- so each layer
@@ -486,7 +576,8 @@ def layer_group(L, mask_path, name):
     norm = 1.0 / max(max(tile), 1e-6)
     g, gin, gout = _new_group(
         name,
-        [("UV", "NodeSocketVector"), ("PrevHeight", "NodeSocketFloat"),
+        [("UV", "NodeSocketVector"), ("Object", "NodeSocketVector"),
+         ("PrevHeight", "NodeSocketFloat"),
          ("PrevBump", "NodeSocketFloat"), ("PrevAlbedo", "NodeSocketColor"),
          ("PrevRough", "NodeSocketFloat"), ("PrevWeight", "NodeSocketFloat")],
         [("Height", "NodeSocketFloat"), ("Bump", "NodeSocketFloat"),
@@ -494,7 +585,10 @@ def layer_group(L, mask_path, name):
          ("Weight", "NodeSocketFloat"), ("Blend", "NodeSocketFloat")])
     gin.location, gout.location = (-1200, 0), (900, 0)
     m = _mk(g)
-    luv = _layer_uv(g, gin.outputs["UV"], p, -1000, 500)
+    projected = bool(p.get("pUVEnableProjection", [0])[0])
+    luv = (_layer_projection(g, gin.outputs["Object"], p, -1000, 500,
+                             projection_position_scale, projection_position_center)
+           if projected else _layer_uv(g, gin.outputs["UV"], p, -1000, 500))
 
     mtex = g.nodes.new("ShaderNodeTexImage")
     mtex.image = _img(mask_path)
@@ -503,13 +597,18 @@ def layer_group(L, mask_path, name):
     mask = mtex.outputs["Color"]
 
     # ---- height, two accumulators through one blend factor
-    hp = _slice_path(L["slices"].get("pHeightTexture"), "pheighttexture")
+    hp = _slice_path(L, "pHeightTexture")
     if hp:
+        himage = _mip_img(hp, HEIGHT_MIP)
         htex = g.nodes.new("ShaderNodeTexImage")
-        htex.image = _mip_img(hp, HEIGHT_MIP)
+        htex.image = himage
         htex.extension = "REPEAT"
         htex.location = (-450, 500)
+        if projected:
+            htex.projection = "BOX"
+            htex.projection_blend = PROJECTION_BLEND
         g.links.new(luv, htex.inputs["Vector"])
+        hcolour = htex.outputs["Color"]
         # %977-%978: sample * (%896 * %97) * pHeightScale
         #
         # `norm` FEEDS BOTH ACCUMULATORS, AND THAT IS CORRECT. Do not "fix" it.
@@ -527,7 +626,7 @@ def layer_group(L, mask_path, name):
         # by the measurement. See [[verify-measurement-apparatus]].
         #
         # The reciprocal keeps the palette parameter in a sane range; that is what it is for.
-        h_bump = m("MULTIPLY", htex.outputs["Color"],
+        h_bump = m("MULTIPLY", hcolour,
                    p.get("pHeightScale", [0.0])[0] * norm * HEIGHT_SCALE)
         # %979-%980: %97 * 0.01 * blockHeightOffset, and the block stores pHeightOffset RAW,
         # so this term really is a hundredth of the FGM value.
@@ -559,17 +658,22 @@ def layer_group(L, mask_path, name):
     g.links.new(blend, gout.inputs["Blend"])
 
     # ---- albedo: diffuse -> remap LUT -> saturation/contrast, weighted by smoothstep(blend)
-    dp = _slice_path(L["slices"].get("pDiffuseTexture"), "pdiffusetexture")
+    dp = _slice_path(L, "pDiffuseTexture")
     sn = g.nodes.new("ShaderNodeGroup")
     sn.node_tree = _shared(satcon_group)
     sn.location = (200, 150)
     if dp:
+        dimage = _img(dp, noncolor=False)
         dtex = g.nodes.new("ShaderNodeTexImage")
-        dtex.image = _img(dp, noncolor=False)
+        dtex.image = dimage
         dtex.extension = "REPEAT"
         dtex.location = (-450, 150)
+        if projected:
+            dtex.projection = "BOX"
+            dtex.projection_blend = PROJECTION_BLEND
         g.links.new(luv, dtex.inputs["Vector"])
-        col = _remap(g, m, dtex.outputs["Color"], L)
+        dcolour = dtex.outputs["Color"]
+        col = _remap(g, m, dcolour, L)
         g.links.new(col, sn.inputs["Color"])
     else:
         sn.inputs["Color"].default_value = (0.5, 0.5, 0.5, 1.0)   # %2102-%2104 fallback
@@ -584,21 +688,26 @@ def layer_group(L, mask_path, name):
     g.links.new(amix.outputs[2], gout.inputs["Albedo"])
 
     # ---- roughness from pPackedTexture.r, weighted by the raw blend (%1903, %2155)
-    pp = _slice_path(L["slices"].get("pPackedTexture"), "ppackedtexture", "_RGB")
+    pp = _slice_path(L, "pPackedTexture", "_RGB")
     rmix = g.nodes.new("ShaderNodeMix")
     rmix.data_type = "FLOAT"
     rmix.location = (550, -200)
     g.links.new(blend, rmix.inputs["Factor"])
     g.links.new(gin.outputs["PrevRough"], rmix.inputs[2])
     if pp:
+        pimage = _img(pp)
         ptex = g.nodes.new("ShaderNodeTexImage")
-        ptex.image = _img(pp)
+        ptex.image = pimage
         ptex.extension = "REPEAT"
         ptex.location = (-450, -200)
+        if projected:
+            ptex.projection = "BOX"
+            ptex.projection_blend = PROJECTION_BLEND
         g.links.new(luv, ptex.inputs["Vector"])
+        pcolour = ptex.outputs["Color"]
         sep = g.nodes.new("ShaderNodeSeparateColor")
         sep.location = (200, -200)
-        g.links.new(ptex.outputs["Color"], sep.inputs["Color"])
+        g.links.new(pcolour, sep.inputs["Color"])
         g.links.new(sep.outputs[0], rmix.inputs[3])
     else:
         rmix.inputs[3].default_value = ROUGHNESS_DEFAULT
@@ -650,7 +759,7 @@ def _remap(g, m, colour, L):
     filler is a useful canary -- if a remap render goes red, the V flip is wrong.
     """
     idx = int(L["params"].get("pRemapLutIndex", [-1])[0])
-    rp = _slice_path(L["slices"].get("pRemapTexture"), "premaptexture")
+    rp = _slice_path(L, "pRemapTexture")
     if idx < 0 or rp is None:
         return colour
     lum = m("DOT_PRODUCT", colour, LUMA, kind="ShaderNodeVectorMath").node.outputs["Value"]
@@ -828,7 +937,9 @@ def _layout_tail(nt, prev, base):
 
 
 def build(layers, mask_dir, mask_prefix, mat_name="JWE3_Layered", bump_distance=1.0,
-          levels=(0.0, 0.5, 1.0), use_ao=True, fgm_path=None, base_diffuse_override=None):
+          levels=(0.0, 0.5, 1.0), use_ao=True, fgm_path=None, base_diffuse_override=None,
+          projection_position_scale=DEFAULT_PROJECTION_POSITION_SCALE,
+          projection_position_center=(0.0, 0.0, 0.0)):
     """Build the material as a left-to-right chain of per-layer groups.
 
     Every layer that has a mask channel is included, even if it has no texture in a given slot --
@@ -843,6 +954,8 @@ def build(layers, mask_dir, mask_prefix, mat_name="JWE3_Layered", bump_distance=
     uv = nt.nodes.new("ShaderNodeUVMap")
     uv.uv_map = "UV0"
     uv.location = (-400, 0)
+    texcoord = nt.nodes.new("ShaderNodeTexCoord")
+    texcoord.location = (-400, -180)
 
     # The blend-weight masks: stem from the .fgm's own `pLayered_BlendWeights` dependency when it
     # names one, else the sniffed folder prefix. The `_[NN]_C` tail is an ARRAY INDEX plus a channel
@@ -869,11 +982,13 @@ def build(layers, mask_dir, mask_prefix, mat_name="JWE3_Layered", bump_distance=
             print(f"  L{L['layer_no']:02d} skipped: no mask {os.path.basename(mp)}")
             continue
         gn = nt.nodes.new("ShaderNodeGroup")
-        gn.node_tree = layer_group(L, mp, f"{mat_name}_L{L['layer_no']:02d}")
+        gn.node_tree = layer_group(L, mp, f"{mat_name}_L{L['layer_no']:02d}",
+                                   projection_position_scale, projection_position_center)
         gn.location = (x, 0)
         gn.width = 220
         gn.label = f"L{L['layer_no']:02d} {L['swatch']}"
         nt.links.new(uv.outputs["UV"], gn.inputs["UV"])
+        nt.links.new(texcoord.outputs["Object"], gn.inputs["Object"])
         if prev is None:
             # the shader's initial accumulator values, %2192-%2199
             gn.inputs["PrevAlbedo"].default_value = (0.5, 0.5, 0.5, 1.0)
@@ -935,6 +1050,8 @@ def build(layers, mask_dir, mask_prefix, mat_name="JWE3_Layered", bump_distance=
         mat["jwe3_albedo_node"] = ov.name          # the palette replaces what feeds Base Color
     mat["jwe3_last_layer"] = prev.name if prev else ""    # the palette hooks onto its Height
     mat["jwe3_base_node"] = base.name
+    mat["jwe3_projection_position_scale"] = projection_position_scale
+    mat["jwe3_projection_position_center"] = tuple(projection_position_center)
     layout(nt, dx=320, dy=260)
     _layout_tail(nt, prev, base)
     print(f"{mat.name}: {used} layers wired")

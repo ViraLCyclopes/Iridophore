@@ -295,6 +295,19 @@ def _build_on_object(object_name, mask_dir, mask_prefix, layers_json, base_diffu
         return None
 
     kw = {}
+    # Shader 0300 uses `(objectPosition + offset) * scale` before projected pUVTile. The cluster
+    # values correspond to centring the model and normalising by its radius. Imported Blender
+    # vertices are already unpacked into local model units, so derive the equivalent transform
+    # from the local bounds. Half the longest extent is a stable radius proxy (Deinosuchus:
+    # 5.1118 versus the MS2 ModelInfo radius 5.13445).
+    bounds = [tuple(v) for v in obj.bound_box]
+    mins = tuple(min(v[i] for v in bounds) for i in range(3))
+    maxs = tuple(max(v[i] for v in bounds) for i in range(3))
+    extents = tuple(maxs[i] - mins[i] for i in range(3))
+    radius = max(extents) * 0.5
+    if radius > 1.0e-8:
+        kw["projection_position_scale"] = 1.0 / radius
+        kw["projection_position_center"] = tuple((mins[i] + maxs[i]) * 0.5 for i in range(3))
     if base_diffuse:
         kw["base_diffuse_override"] = base_diffuse
     mat = build_from_json(layers_json, mask_dir, mask_prefix, **kw)

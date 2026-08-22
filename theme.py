@@ -148,6 +148,43 @@ QComboBox QAbstractItemView {{
     selection-color: {accent_hover};
     outline: none;
 }}
+
+/* --- data tables ---
+   QTableWidget does not inherit QLineEdit's palette on Windows. Without explicit viewport,
+   header and corner-button rules the new Material FGMs tab gets white cells and white header
+   strips inside an otherwise dark application. */
+QTableWidget, QTableView {{
+    background-color: {bg_input};
+    alternate-background-color: {bg_card};
+    color: {text_main};
+    gridline-color: {border};
+    border: 1px solid {border};
+    border-radius: 4px;
+    selection-background-color: {accent_end};
+    selection-color: #ffffff;
+    outline: none;
+}}
+QTableWidget::item, QTableView::item {{
+    padding: 3px 6px;
+    border: none;
+}}
+QTableWidget::item:hover, QTableView::item:hover {{ background-color: {bg_hover}; }}
+QHeaderView {{ background-color: {bg_sidebar}; color: {text_muted}; }}
+QHeaderView::section {{
+    background-color: {bg_sidebar};
+    color: {text_main};
+    border: none;
+    border-right: 1px solid {border};
+    border-bottom: 1px solid {border};
+    padding: 5px 7px;
+    font-weight: 500;
+}}
+QTableCornerButton::section {{
+    background-color: {bg_sidebar};
+    border: none;
+    border-right: 1px solid {border};
+    border-bottom: 1px solid {border};
+}}
 QSpinBox::up-button, QDoubleSpinBox::up-button,
 QSpinBox::down-button, QDoubleSpinBox::down-button {{
     background-color: {bg_hover};
