@@ -21,7 +21,7 @@ MEANINGS = {
     "pHeightOffset": ("confirmed", "Baseline height; JWE3 shader applies value * 0.01."),
     "pHeightScale": ("confirmed", "Swatch height amplitude, also normalised by reciprocal maximum UV tile."),
     "pRemapLutIndex": ("confirmed", "Remap-LUT row; -1 disables the remap."),
-    "pUVEnableProjection": ("unresolved", "Selects projected/generated coordinates; exact JWE3 projection formula is not mapped."),
+    "pUVEnableProjection": ("confirmed", "0 uses mesh UVs; 1 uses three rotated projection planes blended by sharpened object-normal weights."),
     "pUVOffset": ("confirmed", "UV offset before tiling."),
     "pUVRotationAngle": ("confirmed", "Rotation as a fraction of 180 degrees."),
     "pUVRotationPosition": ("confirmed", "Rotation pivot; shader uses (x, y - 1)."),
@@ -111,3 +111,27 @@ class MaterialFgm:
 
 def meaning(name):
     return MEANINGS.get(name, ("unresolved", "Preserved exactly; shader role has not been mapped."))
+
+
+def validate_value(dtype, text):
+    """Return canonical whitespace-separated text or raise ValueError.
+
+    FGM XML is permissive enough that a typo otherwise survives Save and only fails later during
+    Cobra injection. Validate at the editor boundary while still retaining every unknown field.
+    """
+    values = text.replace(",", " ").split()
+    kind = dtype.rsplit(".", 1)[-1].upper()
+    counts = {"FLOAT": 1, "FLOAT_2": 2, "FLOAT_3": 3, "FLOAT_4": 4,
+              "INT": 1, "BOOL": 1}
+    expected = counts.get(kind)
+    if expected is not None and len(values) != expected:
+        raise ValueError("%s requires %d value(s), got %d" % (dtype, expected, len(values)))
+    if kind == "BOOL":
+        if values[0].lower() in ("true", "1"): return "1"
+        if values[0].lower() in ("false", "0"): return "0"
+        raise ValueError("BOOL must be 0/1 or true/false")
+    if kind == "INT":
+        return str(int(values[0], 0))
+    if kind.startswith("FLOAT"):
+        [float(v) for v in values]
+    return " ".join(values)

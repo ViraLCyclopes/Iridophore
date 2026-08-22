@@ -2,10 +2,12 @@
 import os
 from PyQt5 import QtCore, QtWidgets
 
-from material_fgm import MaterialFgm, meaning
+from material_fgm import MaterialFgm, meaning, validate_value
 
 
 class MaterialFgmTab(QtWidgets.QWidget):
+    changed = QtCore.pyqtSignal(object)
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.model = None
@@ -32,8 +34,26 @@ class MaterialFgmTab(QtWidgets.QWidget):
         self.open_button.clicked.connect(self.open_dialog)
         self.save_button.clicked.connect(self.save)
         self.save_as_button.clicked.connect(self.save_as)
+        self._change_timer = QtCore.QTimer(self)
+        self._change_timer.setSingleShot(True)
+        self._change_timer.setInterval(300)
+        self._change_timer.timeout.connect(self._emit_changed)
+        self.attrs.cellChanged.connect(lambda _r, c: self._queue_changed() if c == 1 else None)
+        self.textures.cellChanged.connect(lambda _r, c: self._queue_changed() if c == 2 else None)
+
+    def _queue_changed(self):
+        if self.model is not None:
+            self._change_timer.start()
+
+    def _emit_changed(self):
+        try:
+            self._commit()
+            self.changed.emit(self.model)
+        except Exception as e:
+            self.summary.setText("Edit not applied: %s" % e)
 
     def load_path(self, path):
+        self.attrs.blockSignals(True); self.textures.blockSignals(True)
         self.model = MaterialFgm.load(path)
         aa, tt = self.model.attributes(), self.model.textures()
         self.attrs.setRowCount(len(aa))
@@ -51,15 +71,21 @@ class MaterialFgmTab(QtWidgets.QWidget):
                 self.textures.setItem(row, col, item)
         self.summary.setText("%s — %s — %d attributes, %d texture slots" %
                              (os.path.basename(path), self.model.shader, len(aa), len(tt)))
+        self.attrs.blockSignals(False); self.textures.blockSignals(False)
         self.save_button.setEnabled(True); self.save_as_button.setEnabled(True)
         return self.model
 
     def _commit(self):
         for row in range(self.attrs.rowCount()):
-            self.model.set_attribute(self.attrs.item(row, 0).text(), self.attrs.item(row, 1).text())
+            name = self.attrs.item(row, 0).text()
+            dtype = self.attrs.item(row, 2).text()
+            value = validate_value(dtype, self.attrs.item(row, 1).text())
+            self.model.set_attribute(name, value)
         for row in range(self.textures.rowCount()):
-            self.model.set_texture_index(self.textures.item(row, 0).text(),
-                                         int(self.textures.item(row, 2).text()))
+            index = int(self.textures.item(row, 2).text())
+            if not 0 <= index <= 254:
+                raise ValueError("texture array index must be between 0 and 254")
+            self.model.set_texture_index(self.textures.item(row, 0).text(), index)
 
     def save(self):
         if self.model:
@@ -79,4 +105,3 @@ class MaterialFgmTab(QtWidgets.QWidget):
         if path:
             try: self.load_path(path)
             except Exception as e: QtWidgets.QMessageBox.critical(self, "Material FGM", str(e))
-

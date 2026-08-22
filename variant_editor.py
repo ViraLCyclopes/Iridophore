@@ -30,6 +30,8 @@ Run:  python variant_editor.py --selftest   -> selftest ok
 """
 import os
 import sys
+import json
+import tempfile
 
 from PyQt5 import QtWidgets
 
@@ -86,6 +88,8 @@ class EditorController:
         self.refresh_textures_row()
 
         window.species_combo.addItems(previewable_species())
+        if getattr(window, "material_fgm_tab", None) is not None:
+            window.material_fgm_tab.changed.connect(self.on_material_fgm_changed)
 
     # -- actions (no dialogs) ---------------------------------------------
     def do_open(self, path):
@@ -186,8 +190,11 @@ class EditorController:
         if self.bridge is None:
             self.window.statusBar().showMessage("no Blender connection - start the listener add-on")
             return False
-        object_name = self.window.object_name_edit.text().strip()
-        if not object_name:
+        # Blender object names may legitimately end in whitespace (the MS2 importer currently
+        # produces names such as ``deinosuchus_female_L0: ``).  Preserve the exact name sent by
+        # Blender; stripping it makes an otherwise valid object impossible to target.
+        object_name = self.window.object_name_edit.text()
+        if not object_name.strip():
             self.window.statusBar().showMessage("enter the name of the imported mesh object first")
             return False
         # Textures follow the MODEL, not the .fgm: previewing a Spinosaurus variant on a Baryonyx
@@ -216,6 +223,82 @@ class EditorController:
         else:
             self.window.statusBar().showMessage(
                 "build failed - is %r the imported mesh object's name?" % object_name)
+        return ok
+
+    def on_material_fgm_changed(self, material):
+        self._guard(self.do_material_fgm_preview, material)
+
+    @staticmethod
+    def _fgm_value(attribute):
+        vals = attribute.value.replace(",", " ").split()
+        kind = attribute.dtype.rsplit(".", 1)[-1].upper()
+        if kind in ("BOOL", "INT"):
+            return [int(float(v)) for v in vals]
+        return [float(v) for v in vals]
+
+    def do_material_fgm_preview(self, material):
+        """Rebuild Blender's layer stack from an in-memory layer/swatch FGM edit.
+
+        A temporary LayerJSON carries unsaved values across the existing bridge. Nothing is
+        written back to the source FGM until the Material FGMs tab's Save button is pressed.
+        """
+        if self.bridge is None:
+            self.window.statusBar().showMessage("material edited; no Blender connection")
+            return False
+        # Keep the exact Blender datablock name; see do_build for the trailing-space case.
+        object_name = self.window.object_name_edit.text()
+        if not object_name.strip():
+            self.window.statusBar().showMessage("material edited; enter a Blender object to preview")
+            return False
+        species = (species_from_object_name(object_name)
+                   or self.window.species_combo.currentText().strip())
+        sex = sex_from_object_name(object_name) or self._current_sex()
+        mask_dir, mask_prefix, layers_path = assets_for(species, sex,
+                                                        fgm_path=material.path,
+                                                        fgm_species=species)
+        with open(layers_path, "r", encoding="utf-8") as stream:
+            data = json.load(stream)
+        attrs = {a.name: self._fgm_value(a) for a in material.attributes()}
+        stem = os.path.splitext(os.path.basename(material.path))[0].lower()
+        touched = 0
+        projected = False
+        if material.shader == "DinosaurLayered_Layer":
+            for layer in data.get("layers", []):
+                transform = str(layer.get("transform_fgm") or "").lower()
+                if transform == stem or stem.endswith(transform) or transform.endswith(stem):
+                    layer.setdefault("params", {}).update(attrs)
+                    projected = bool(attrs.get("pUVEnableProjection", [0])[0])
+                    touched += 1
+        else:
+            textures = {t.name: t.array_index for t in material.textures()}
+            dependencies = {t.name: t.dependency for t in material.textures()}
+            for layer in data.get("layers", []):
+                if str(layer.get("swatch") or "").lower() == stem:
+                    layer.setdefault("slices", {}).update(textures)
+                    layer["swatch_library"] = os.path.dirname(os.path.abspath(material.path))
+                    layer.setdefault("swatch_textures", {}).update(dependencies)
+                    if "pGlobalColouringWeight" in attrs:
+                        layer["swatch_colour_weight"] = attrs["pGlobalColouringWeight"][0]
+                    touched += 1
+        if not touched:
+            raise ValueError("%s is not referenced by %s" % (os.path.basename(material.path),
+                                                              os.path.basename(layers_path)))
+        fd, temp_path = tempfile.mkstemp(prefix="jwe3_material_live_", suffix=".json")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as stream:
+                json.dump(data, stream)
+            ok = self.bridge.build_material(object_name, mask_dir, mask_prefix, temp_path)
+            if ok:
+                self.bridge.push(self.window.model)
+        finally:
+            try: os.unlink(temp_path)
+            except OSError: pass
+        note = ("; projection transmitted, Blender projection remains experimental"
+                if projected else "")
+        self.window.statusBar().showMessage(
+            ("live material preview updated (%d layer%s)%s" %
+             (touched, "" if touched == 1 else "s", note)) if ok else
+            "Blender material rebuild failed")
         return ok
 
     def do_blender_import(self, path, object_name=""):

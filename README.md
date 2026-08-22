@@ -10,7 +10,7 @@ DISCLAIMER: THIS PROJECT WAS MADE WITH THE HELP OF CLAUDE CODE. THIS IS TO GIVE 
 |---|---|
 | Put a variant on a model in Blender | Install `VariantEditor.zip`, then *File ▸ Import ▸ JWE3 Variant (.fgm)* |
 | Tune a variant with live sliders | Extract the repo, `python variant_editor.py` |
-| Point it at my game / Swatch Library | `python setup_gui.py` (usually auto-detected) |
+| Point it at my game / scale libraries | `python setup_gui.py` (usually auto-detected) |
 | Capture new palette seeds | `python Harvesting/harvest_gui.py` — guided, with backups and one-click restore |
 | Understand the whole workflow | **[docs/GUIDE.md](docs/GUIDE.md)** — setup, Blender, judging colour, harvesting, troubleshooting |
 
@@ -271,6 +271,11 @@ a variant never alters a value you did not touch.
 
 ### Layer and swatch material FGMs
 
+Scale libraries are configured as an ordered list in `setup_gui.py`. Add the extracted base-game
+SwatchLibrary and each custom library folder containing its swatch `.fgm` files and array-slice
+PNGs. The first matching FGM name wins. Exports retain the selected library folder and the exact
+texture dependency names from that FGM, so a custom library can use its own array filenames.
+
 The **Material FGMs** tab opens both `<species>_layer_NN.fgm`
 (`DinosaurLayered_Layer`) and shared scale/swatch FGMs
 (`DinosaurLayered_Swatch_Opaque`). It exposes every attribute and each texture
@@ -278,10 +283,11 @@ array index, including fields the preview does not yet render. Each row is marke
 confirmed, inferred, or unresolved; unresolved values are preserved during save.
 
 Height scale, height offset, height-blend A/B, UV tile/offset/rotation, remap row,
-diffuse saturation/contrast, and global colouring weight are mapped. Projection is
-still shown as unresolved because both the old Cobra material importer and the JWE3
-preview currently omit its generated/triplanar coordinate path. Editing the flag is
-allowed, but the Blender preview does not pretend to reproduce it yet.
+diffuse saturation/contrast, and global colouring weight are mapped. Shader IR confirms
+that projection `0` uses mesh UVs while `1` enters a three-axis position/normal projection
+path. The Blender preview still omits that path until its engine-to-Blender coordinate-space
+conversion is reproduced exactly; the editor exposes and preserves the real flag without
+pretending the viewport already matches it.
 
 ## What to extract for a species
 

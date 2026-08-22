@@ -20,6 +20,7 @@ Verified on Spinosaurus Female: 16/16 layers resolve to a height slice.
 import json
 import os
 import sys
+import xml.etree.ElementTree as ET
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -27,7 +28,6 @@ import reader_kit as rk  # noqa: E402
 
 import _paths  # noqa: E402  (vendored: data lives inside the package)
 SWATCH_PARAMS = _paths.swatch_params()
-SWATCH_DIR = _paths.swatch_dir()
 
 LAYERS_EXT = ".dinosaurmateriallayers"
 
@@ -95,8 +95,7 @@ def resolve_from_folder(folder, sex=None):
 
     header = DinoLayersHeader.from_xml_file(path, FgmContext(loader=None))
     fgms = _fgm_index(folder)
-    slices = swatch_slices()
-    swatch_w = swatch_colour_weights()
+    catalog = swatch_catalog()
 
     out = []
     cursor = 0                      # POST-increment, exactly as in resolve() below
@@ -112,6 +111,7 @@ def resolve_from_folder(folder, sex=None):
             if fgm_path:
                 params = _params_from_fgm_file(fgm_path)
 
+        swatch_info = catalog.get((swatch + ".fgm").lower(), {})
         out.append({
             "index": i,
             "layer_no": i + 1,
@@ -119,8 +119,10 @@ def resolve_from_folder(folder, sex=None):
             "transform_fgm": tname,
             "used": swatch not in ("None", "", "0"),
             "increment_channel": inc,
-            "slices": slices.get((swatch + ".fgm").lower(), {}),
-            "swatch_colour_weight": swatch_w.get((swatch + ".fgm").lower(), 1.0),
+            "slices": swatch_info.get("slices", {}),
+            "swatch_colour_weight": swatch_info.get("colour_weight", 1.0),
+            "swatch_library": swatch_info.get("library_dir"),
+            "swatch_textures": swatch_info.get("textures", {}),
             "blend_texture": cursor // 4 if 0 <= cursor < 16 else None,
             "blend_channel": "RGBA"[cursor % 4] if 0 <= cursor < 16 else None,
             "params": params,
@@ -146,15 +148,65 @@ SLOTS = ("pDiffuseTexture", "pHeightTexture", "pPackedTexture", "pRemapTexture")
 
 
 def swatch_slices():
-    """{swatch fgm name (lowercase): {slot: array_index}} from the dumped SwatchLibrary."""
-    if not os.path.isfile(SWATCH_PARAMS):
-        raise FileNotFoundError(f"{SWATCH_PARAMS} missing -- run extract_swatches.py first")
+    """{swatch fgm name (lowercase): {slot: array_index}} across all configured libraries."""
+    return {name: item["slices"] for name, item in swatch_catalog().items()}
+
+
+def swatch_catalog():
+    """Resolve swatches from ordered libraries; the first duplicate name wins.
+
+    Each entry retains the directory and exact texture dependencies. Custom libraries do not have
+    to copy the base game's array filename, and a LayerJSON therefore remains unambiguous.
+    """
     out = {}
-    for name, p in json.load(open(SWATCH_PARAMS)).items():
-        if "__error__" in p:
+    for folder in _paths.swatch_dirs():
+        try:
+            names = sorted(os.listdir(folder))
+        except OSError:
             continue
-        out[name.lower()] = {slot: entries[0]["array_index"]
-                             for slot, entries in p["textures"].items() if entries}
+        for filename in names:
+            if not filename.lower().endswith(".fgm"):
+                continue
+            key = filename.lower()
+            if key in out:
+                continue
+            try:
+                root = ET.parse(os.path.join(folder, filename)).getroot()
+                if root.get("shader_name") != "DinosaurLayered_Swatch_Opaque":
+                    continue
+                slices, textures = {}, {}
+                for node in root.findall("./textures/textureinfo"):
+                    texindex = node.find("./value/texindex")
+                    if texindex is None:
+                        continue
+                    slot = node.get("name", "")
+                    slices[slot] = int(texindex.get("array_index", "0"))
+                    textures[slot] = (node.findtext("dependency_name") or "").strip()
+                weight = 1.0
+                for node in root.findall("./attributes/attribinfo"):
+                    if node.get("name") == "pGlobalColouringWeight":
+                        weight = float((node.findtext("value") or "1").split()[0])
+                        break
+                out[key] = {"slices": slices, "colour_weight": weight,
+                            "library_dir": os.path.abspath(folder), "textures": textures}
+            except (ET.ParseError, OSError, TypeError, ValueError):
+                continue
+
+    # Bundled metadata keeps legacy/base resolution working when only the PNG folder is present.
+    if not os.path.isfile(SWATCH_PARAMS):
+        return out
+    for name, p in json.load(open(SWATCH_PARAMS)).items():
+        if "__error__" in p or name.lower() in out:
+            continue
+        slices = {slot: entries[0]["array_index"]
+                  for slot, entries in p["textures"].items() if entries}
+        attrs = p.get("attrs", {})
+        v = attrs.get("pGlobalColouringWeight", [1.0])
+        out[name.lower()] = {"slices": slices,
+                             "colour_weight": float(v[0] if isinstance(v, list) else v),
+                             "library_dir": _paths.swatch_dir(),
+                             "textures": {slot: ARRAY_PREFIX + "." + slot.lower() + ".tex"
+                                          for slot in slices}}
     return out
 
 
@@ -172,16 +224,7 @@ def swatch_colour_weights():
     Confirmed against nine layer blocks read out of RenderDoc captures across two species: the low
     half of word 18 equals this value in all nine, including both 0 and 1 cases.
     """
-    if not os.path.isfile(SWATCH_PARAMS):
-        raise FileNotFoundError(f"{SWATCH_PARAMS} missing -- run extract_swatches.py first")
-    out = {}
-    for name, p in json.load(open(SWATCH_PARAMS)).items():
-        if "__error__" in p:
-            continue
-        v = p.get("attrs", {}).get("pGlobalColouringWeight")
-        if v is not None:
-            out[name.lower()] = float(v[0] if isinstance(v, list) else v)
-    return out
+    return {name: item["colour_weight"] for name, item in swatch_catalog().items()}
 
 
 def resolve(species, sex="Female"):
@@ -205,8 +248,7 @@ def resolve(species, sex="Female"):
             "%s contains no .dinosaurmateriallayers -- OVL layout varies between species.\n"
             "Use resolve_from_folder() against your own extracted folder instead; it needs no "
             "game install." % rk.species_ovl_name(species, sex))
-    slices = swatch_slices()
-    swatch_w = swatch_colour_weights()
+    catalog = swatch_catalog()
 
     out = []
     cursor = 0                      # POST-increment, matching cobra-tools' own importer:
@@ -222,6 +264,7 @@ def resolve(species, sex="Female"):
         loader = ovl.loaders.get(f"{tname}.fgm".lower()) if tname else None
         params = rk._params(loader) if loader is not None else {}
 
+        swatch_info = catalog.get((swatch + ".fgm").lower(), {})
         out.append({
             # `index` is 0-based (array position). `layer_no` is the 1-based number used by the
             # FGM filenames -- Lokiceratops_Layer_03 is index 2. Always quote layer_no or the FGM
@@ -233,9 +276,11 @@ def resolve(species, sex="Female"):
             "transform_fgm": tname,
             "used": swatch not in ("None", "", "0"),
             "increment_channel": inc,
-            "slices": slices.get((swatch + ".fgm").lower(), {}),
+            "slices": swatch_info.get("slices", {}),
             # the swatch's own colouring veto -- multiply with params["pGlobalColouringWeight"]
-            "swatch_colour_weight": swatch_w.get((swatch + ".fgm").lower(), 1.0),
+            "swatch_colour_weight": swatch_info.get("colour_weight", 1.0),
+            "swatch_library": swatch_info.get("library_dir"),
+            "swatch_textures": swatch_info.get("textures", {}),
             "blend_texture": cursor // 4 if 0 <= cursor < 16 else None,
             "blend_channel": "RGBA"[cursor % 4] if 0 <= cursor < 16 else None,
             "params": params,
@@ -260,8 +305,12 @@ def slice_png(layer, slot="pHeightTexture", suffix=""):
     idx = layer["slices"].get(slot)
     if idx is None:
         return None
-    p = os.path.join(SWATCH_DIR,
-                     f"{ARRAY_PREFIX}.{slot.lower()}_[{idx:02d}]{suffix}.png")
+    folder = layer.get("swatch_library") or _paths.swatch_dir()
+    dep = layer.get("swatch_textures", {}).get(slot, "")
+    prefix = os.path.splitext(dep)[0] if dep else f"{ARRAY_PREFIX}.{slot.lower()}"
+    if not folder:
+        return None
+    p = os.path.join(folder, f"{prefix}_[{idx:02d}]{suffix}.png")
     return p if os.path.isfile(p) else None
 
 
