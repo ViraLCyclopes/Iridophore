@@ -261,7 +261,12 @@ def main(exclude=()):
     print("  all seeds verified" if ok else "  VERIFICATION FAILED")
 
     json.dump(manifest, open(MANIFEST, "w"), indent=1)
+    # Preserve this run's identity when a later run reuses the same fingerprints.
+    import harvest_integrity
+    snapshot = os.path.join(backup, "seedsweep_seeds.json")
+    harvest_integrity.atomic_json(snapshot, seed_rows)
     json.dump(seed_rows, open(SEED_TABLE, "w"), indent=1)
+    print(f"capture association table -> {snapshot}")
     print(f"\nmanifest   -> {MANIFEST}")
     print(f"seed table -> {SEED_TABLE}  ({len(seed_rows)} rows)")
     print(f"backup     -> {backup}")

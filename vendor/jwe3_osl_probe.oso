@@ -1,0 +1,11 @@
+OpenShadingLanguage 1.00
+# Compiled by oslc 1.14.4.0dev
+# options: -o C:\Users\shado\AppData\Local\Temp\tmpr0exn7up.oso -IC:\Program Files\Blender Foundation\Blender 4.5\4.5\scripts\addons_core\cycles\shader
+shader JWE3_OSL_Probe
+oparam	color	Color	0.850000024 0.119999997 0.649999976		%read{2147483647,-1} %write{0,0}
+const	color	$const1	0.850000024 0.119999997 0.649999976		%read{0,0} %write{2147483647,-1}
+code ___main___
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_probe.osl:8
+# }
+	assign		Color $const1 	%filename{"D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_probe.osl"} %line{8} %argrw{"wr"}
+	end

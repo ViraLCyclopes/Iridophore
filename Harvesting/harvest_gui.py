@@ -96,6 +96,12 @@ class HarvestWindow(QtWidgets.QWidget):
             "of old captures and only want the one you just took.")
         self.harvest_one_button.clicked.connect(self.do_harvest_one)
         blay2.addWidget(self.harvest_one_button)
+        self.bind_sweep_button = QtWidgets.QPushButton("Associate sweep...")
+        self.bind_sweep_button.setToolTip(
+            "Associate a capture with the seedsweep_seeds.json used when it was captured. "
+            "Do not use a newer sweep's table for an older capture.")
+        self.bind_sweep_button.clicked.connect(self.do_bind_sweep)
+        blay2.addWidget(self.bind_sweep_button)
         outer.addWidget(bar)
         outer.addStretch(1)
 
@@ -265,6 +271,9 @@ class HarvestWindow(QtWidgets.QWidget):
         if code == 0:
             # Without this the same captures look "new" forever and the card never advances.
             harvest_state.set_last_harvest_stamp()
+        elif code == 2:
+            self.append_log("Non-conflicting results saved. Conflicting seeds remain quarantined; "
+                            "see gradient_coefficients.json.harvest-report.json.")
         else:
             self.append_log("harvest failed (%d) - captures left marked as new" % code)
             self.append_log("running audit to show what the captures actually contained...")
@@ -285,10 +294,29 @@ class HarvestWindow(QtWidgets.QWidget):
             return
         name = os.path.basename(path)
         self.append_log("harvesting only %s ..." % name)
-        code, _out = harvest_runner.run("harvest", [name], on_line=self.append_log)
-        if code != 0:
+        code, _out = harvest_runner.run(
+            "harvest", [name, "--captures-dir", os.path.dirname(path)], on_line=self.append_log)
+        if code == 2:
+            self.append_log("Non-conflicting results saved; conflicting seeds quarantined in the scan report.")
+        elif code != 0:
             self.append_log("harvest of %s failed (%d)" % (name, code))
         self.refresh()
+
+    def do_bind_sweep(self):
+        path = self._pick_file("Choose the swept capture", harvest_state.captures_dir() or "")
+        if not path:
+            return
+        table, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self, "Choose the seed table used for THIS capture", "", "Seed tables (*.json)")
+        if not table:
+            return
+        try:
+            import harvest_integrity
+            import _hpaths
+            harvest_integrity.capture_mapping(path, _hpaths.work_dir(), table)
+            self.append_log("Associated %s with %s; it can now be harvested." % (path, table))
+        except Exception as exc:
+            self.append_log("Association failed: %s" % exc)
 
     def export_harvest(self, path):
         """Write THIS user's own harvested rows to `path`. Returns how many were written.

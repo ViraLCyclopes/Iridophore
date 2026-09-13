@@ -1,0 +1,406 @@
+OpenShadingLanguage 1.00
+# Compiled by oslc 1.14.4.0dev
+# options: -o D:\JWE2 Stuff\Cobra Tool Versions\Main Mod Kit\JWE 3 Luas\Base Game\Dinosaur Files\Variant Research\VariantEditor\vendor\jwe3_osl_triplanar_probe.oso -IC:\Program Files\Blender Foundation\Blender 4.5\4.5\scripts\addons_core\cycles\shader
+shader JWE3_OSL_Triplanar_Probe
+param	string	Texture	"D:/JWE2 Stuff/Personal Mods/JWE3/Images and Models/Dinosaurs/SwatchLibrary/swatch_anky_ankylo_backplates.pdiffusetexture_[27].png"		%meta{string,widget,"filename"}  %read{131,133} %write{2147483647,-1}
+param	point	ModelCenter	-0.000243902206 1.73925984 0.640381634		%read{2,2} %write{2147483647,-1} %derivs
+param	float	PositionScale	0.195624977		%read{12,12} %write{2147483647,-1} %derivs
+param	float	OffsetU	0.5		%read{56,102} %write{2147483647,-1} %derivs
+param	float	OffsetV	0.5		%read{59,105} %write{2147483647,-1} %derivs
+param	float	TileU	9.42000008		%read{57,103} %write{2147483647,-1} %derivs
+param	float	TileV	4.53000021		%read{60,106} %write{2147483647,-1} %derivs
+param	float	PivotU	0		%read{54,100} %write{2147483647,-1} %derivs
+param	float	PivotV	0		%read{55,101} %write{2147483647,-1} %derivs
+param	float	Angle	0		%read{62,109} %write{2147483647,-1} %derivs
+oparam	color	Color	0.5 0.5 0.5		%read{2147483647,-1} %write{141,141}
+global	point	P	%read{0,0} %write{2147483647,-1} %derivs
+global	normal	N	%read{4,4} %write{2147483647,-1}
+local	float	___368_px	%read{58,113} %write{54,100} %derivs
+local	float	___368_py	%read{61,117} %write{55,101} %derivs
+local	float	___368_a	%read{64,114} %write{58,104} %derivs
+local	float	___368_b	%read{65,115} %write{61,107} %derivs
+local	float	___368_c	%read{64,115} %write{62,108} %derivs
+local	float	___368_s	%read{65,114} %write{63,109} %derivs
+local	point	object_p	%read{1,1} %write{0,0} %derivs
+local	vector	blender_q	%read{6,9} %write{3,3} %derivs
+local	normal	blender_n	%read{13,16} %write{5,5}
+local	vector	q	%read{49,97} %write{12,12} %derivs
+local	normal	object_n	%read{20,34} %write{19,19}
+local	vector	raw_w	%read{42,48} %write{41,41}
+local	vector	w	%read{134,139} %write{48,48}
+local	float	uy	%read{118,119} %write{67,67} %derivs
+local	float	vy	%read{120,121} %write{71,71} %derivs
+local	float	ux	%read{122,123} %write{90,90} %derivs
+local	float	vx	%read{124,125} %write{94,94} %derivs
+local	float	uz	%read{126,127} %write{113,113} %derivs
+local	float	vz	%read{128,129} %write{117,117} %derivs
+local	float	sy	%read{131,131} %write{119,119} %derivs
+local	float	ty	%read{131,131} %write{121,121} %derivs
+local	float	sx	%read{132,132} %write{123,123} %derivs
+local	float	tx	%read{132,132} %write{125,125} %derivs
+local	float	sz	%read{133,133} %write{127,127} %derivs
+local	float	tz	%read{133,133} %write{129,129} %derivs
+local	color	missing	%read{131,133} %write{130,130}
+local	color	plane_y	%read{135,135} %write{131,131}
+local	color	plane_x	%read{137,137} %write{132,132}
+local	color	plane_z	%read{140,140} %write{133,133}
+const	string	$const1	"common"		%read{0,4} %write{2147483647,-1}
+const	string	$const2	"object"		%read{0,4} %write{2147483647,-1}
+temp	vector	$tmp1	%read{3,3} %write{1,1} %derivs
+temp	vector	$tmp2	%read{3,3} %write{2,2} %derivs
+temp	normal	$tmp3	%read{5,5} %write{4,4}
+temp	vector	$tmp4	%read{12,12} %write{11,11} %derivs
+const	int	$const3	0		%read{6,136} %write{2147483647,-1}
+temp	float	$tmp5	%read{7,7} %write{6,6} %derivs
+temp	float	$tmp6	%read{11,11} %write{7,7} %derivs
+const	int	$const4	2		%read{8,139} %write{2147483647,-1}
+temp	float	$tmp7	%read{11,11} %write{8,8} %derivs
+const	int	$const5	1		%read{9,134} %write{2147483647,-1}
+temp	float	$tmp8	%read{10,10} %write{9,9} %derivs
+temp	float	$tmp9	%read{11,11} %write{10,10} %derivs
+temp	normal	$tmp10	%read{19,19} %write{18,18}
+temp	float	$tmp11	%read{14,14} %write{13,13}
+temp	float	$tmp12	%read{18,18} %write{14,14}
+temp	float	$tmp13	%read{18,18} %write{15,15}
+temp	float	$tmp14	%read{17,17} %write{16,16}
+temp	float	$tmp15	%read{18,18} %write{17,17}
+temp	float	$tmp16	%read{41,41} %write{26,26}
+temp	float	$tmp17	%read{22,22} %write{21,21}
+temp	float	$tmp18	%read{21,21} %write{20,20}
+const	float	$const6	0.57357645		%read{22,36} %write{2147483647,-1}
+temp	float	$tmp19	%read{23,23} %write{22,22}
+const	float	$const7	4.07206583		%read{23,37} %write{2147483647,-1}
+temp	float	$tmp20	%read{25,25} %write{23,23}
+const	float	$const8	0		%read{26,40} %write{2147483647,-1}
+const	float	$const9	1		%read{25,101} %write{2147483647,-1}
+const	string	$const10	"clamp"		%read{24,38} %write{2147483647,-1}
+temp	float	$tmp21	%read{26,26} %write{25,25}
+temp	float	$tmp22	%read{41,41} %write{33,33}
+temp	float	$tmp23	%read{29,29} %write{28,28}
+temp	float	$tmp24	%read{28,28} %write{27,27}
+temp	float	$tmp25	%read{30,30} %write{29,29}
+temp	float	$tmp26	%read{32,32} %write{30,30}
+temp	float	$tmp27	%read{33,33} %write{32,32}
+temp	float	$tmp28	%read{41,41} %write{40,40}
+temp	float	$tmp29	%read{36,36} %write{35,35}
+temp	float	$tmp30	%read{35,35} %write{34,34}
+temp	float	$tmp31	%read{37,37} %write{36,36}
+temp	float	$tmp32	%read{39,39} %write{37,37}
+temp	float	$tmp33	%read{40,40} %write{39,39}
+temp	float	$tmp34	%read{48,48} %write{47,47}
+temp	float	$tmp35	%read{44,44} %write{42,42}
+temp	float	$tmp36	%read{44,44} %write{43,43}
+temp	float	$tmp37	%read{46,46} %write{44,44}
+temp	float	$tmp38	%read{46,46} %write{45,45}
+temp	float	$tmp39	%read{47,47} %write{46,46}
+const	float	$const11	9.99999994e-09		%read{47,47} %write{2147483647,-1}
+temp	float	$tmp40	%read{50,50} %write{49,49} %derivs
+temp	float	$tmp41	%read{56,56} %write{50,50} %derivs
+temp	float	$tmp42	%read{52,52} %write{51,51} %derivs
+temp	float	$tmp43	%read{59,59} %write{52,52} %derivs
+const	string	$const12	"layer_uv"		%read{53,99} %write{2147483647,-1}
+temp	float	$tmp44	%read{57,57} %write{56,56} %derivs
+temp	float	$tmp45	%read{58,58} %write{57,57} %derivs
+temp	float	$tmp46	%read{60,60} %write{59,59} %derivs
+temp	float	$tmp47	%read{61,61} %write{60,60} %derivs
+temp	float	$tmp48	%read{66,66} %write{64,64} %derivs
+temp	float	$tmp49	%read{66,66} %write{65,65} %derivs
+temp	float	$tmp50	%read{67,67} %write{66,66} %derivs
+temp	float	$tmp51	%read{70,70} %write{68,68} %derivs
+temp	float	$tmp52	%read{70,70} %write{69,69} %derivs
+temp	float	$tmp53	%read{71,71} %write{70,70} %derivs
+temp	float	$tmp54	%read{73,73} %write{72,72} %derivs
+temp	float	$tmp55	%read{79,79} %write{73,73} %derivs
+temp	float	$tmp56	%read{75,75} %write{74,74} %derivs
+temp	float	$tmp57	%read{82,82} %write{75,75} %derivs
+temp	float	$tmp58	%read{80,80} %write{79,79} %derivs
+temp	float	$tmp59	%read{81,81} %write{80,80} %derivs
+temp	float	$tmp60	%read{83,83} %write{82,82} %derivs
+temp	float	$tmp61	%read{84,84} %write{83,83} %derivs
+temp	float	$tmp62	%read{89,89} %write{87,87} %derivs
+temp	float	$tmp63	%read{89,89} %write{88,88} %derivs
+temp	float	$tmp64	%read{90,90} %write{89,89} %derivs
+temp	float	$tmp65	%read{93,93} %write{91,91} %derivs
+temp	float	$tmp66	%read{93,93} %write{92,92} %derivs
+temp	float	$tmp67	%read{94,94} %write{93,93} %derivs
+temp	float	$tmp68	%read{96,96} %write{95,95} %derivs
+temp	float	$tmp69	%read{102,102} %write{96,96} %derivs
+temp	float	$tmp70	%read{98,98} %write{97,97} %derivs
+temp	float	$tmp71	%read{105,105} %write{98,98} %derivs
+temp	float	$tmp72	%read{103,103} %write{102,102} %derivs
+temp	float	$tmp73	%read{104,104} %write{103,103} %derivs
+temp	float	$tmp74	%read{106,106} %write{105,105} %derivs
+temp	float	$tmp75	%read{107,107} %write{106,106} %derivs
+temp	float	$tmp76	%read{112,112} %write{110,110} %derivs
+temp	float	$tmp77	%read{112,112} %write{111,111} %derivs
+temp	float	$tmp78	%read{113,113} %write{112,112} %derivs
+temp	float	$tmp79	%read{116,116} %write{114,114} %derivs
+temp	float	$tmp80	%read{116,116} %write{115,115} %derivs
+temp	float	$tmp81	%read{117,117} %write{116,116} %derivs
+temp	float	$tmp82	%read{119,119} %write{118,118} %derivs
+temp	float	$tmp83	%read{121,121} %write{120,120} %derivs
+temp	float	$tmp84	%read{123,123} %write{122,122} %derivs
+temp	float	$tmp85	%read{125,125} %write{124,124} %derivs
+temp	float	$tmp86	%read{127,127} %write{126,126} %derivs
+temp	float	$tmp87	%read{129,129} %write{128,128} %derivs
+const	color	$const13	1 0 1		%read{130,130} %write{2147483647,-1}
+const	string	$const14	"missingcolor"		%read{131,133} %write{2147483647,-1}
+temp	float	$tmp88	%read{135,135} %write{134,134}
+temp	color	$tmp89	%read{138,138} %write{135,135}
+temp	float	$tmp90	%read{137,137} %write{136,136}
+temp	color	$tmp91	%read{138,138} %write{137,137}
+temp	color	$tmp92	%read{141,141} %write{138,138}
+temp	float	$tmp93	%read{140,140} %write{139,139}
+temp	color	$tmp94	%read{141,141} %write{140,140}
+code ___main___
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:40
+#     vector blender_q = vector(object_p) - vector(ModelCenter);
+	transform	object_p $const1 $const2 P 	%filename{"D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl"} %line{40} %argrw{"wrrr"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:41
+#     normal blender_n = normalize(transform("common", "object", N));
+	assign		$tmp1 object_p 	%line{41} %argrw{"wr"}
+	assign		$tmp2 ModelCenter 	%argrw{"wr"}
+	sub		blender_q $tmp1 $tmp2 	%argrw{"wrr"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:42
+# 
+	transformn	$tmp3 $const1 $const2 N 	%line{42} %argrw{"wrrr"}
+	normalize	blender_n $tmp3 	%argrw{"wr"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:47
+#              * PositionScale;
+	compref		$tmp5 blender_q $const3 	%line{47} %argrw{"wrr"}
+	neg		$tmp6 $tmp5 	%argrw{"wr"}
+	compref		$tmp7 blender_q $const4 	%argrw{"wrr"}
+	compref		$tmp8 blender_q $const5 	%argrw{"wrr"}
+	neg		$tmp9 $tmp8 	%argrw{"wr"}
+	vector		$tmp4 $tmp6 $tmp7 $tmp9 	%argrw{"wrrr"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:48
+#     normal object_n = normalize(normal(-blender_n[0], blender_n[2],
+	mul		q $tmp4 PositionScale 	%line{48} %argrw{"wrr"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:49
+#                                        -blender_n[1]));
+	compref		$tmp11 blender_n $const3 	%line{49} %argrw{"wrr"}
+	neg		$tmp12 $tmp11 	%argrw{"wr"}
+	compref		$tmp13 blender_n $const4 	%argrw{"wrr"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:50
+# 
+	compref		$tmp14 blender_n $const5 	%line{50} %argrw{"wrr"}
+	neg		$tmp15 $tmp14 	%argrw{"wr"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:49
+#                                        -blender_n[1]));
+	normal		$tmp10 $tmp12 $tmp13 $tmp15 	%line{49} %argrw{"wrrr"}
+	normalize	object_n $tmp10 	%argrw{"wr"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:53
+#         clamp((abs(object_n[1]) - 0.5735764503) * 4.0720658302, 0.0, 1.0),
+	compref		$tmp18 object_n $const3 	%line{53} %argrw{"wrr"}
+	abs		$tmp17 $tmp18 	%argrw{"wr"}
+	sub		$tmp19 $tmp17 $const6 	%argrw{"wrr"}
+	mul		$tmp20 $tmp19 $const7 	%argrw{"wrr"}
+	functioncall	$const10 27 	%argrw{"r"}
+# C:\\\\Program Files\\\\Blender Foundation\\\\Blender 4.5\\\\4.5\\\\scripts\\\\addons_core\\\\cycles\\\\shader/stdosl.h:141
+# float  clamp (float x, float minval, float maxval) { return max(min(x,maxval),minval); }
+	min		$tmp21 $tmp20 $const9 	%filename{"C:\\\\Program Files\\\\Blender Foundation\\\\Blender 4.5\\\\4.5\\\\scripts\\\\addons_core\\\\cycles\\\\shader/stdosl.h"} %line{141} %argrw{"wrr"}
+	max		$tmp16 $tmp21 $const8 	%argrw{"wrr"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:54
+#         clamp((abs(object_n[2]) - 0.5735764503) * 4.0720658302, 0.0, 1.0));
+	compref		$tmp24 object_n $const5 	%filename{"D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl"} %line{54} %argrw{"wrr"}
+	abs		$tmp23 $tmp24 	%argrw{"wr"}
+	sub		$tmp25 $tmp23 $const6 	%argrw{"wrr"}
+	mul		$tmp26 $tmp25 $const7 	%argrw{"wrr"}
+	functioncall	$const10 34 	%argrw{"r"}
+# C:\\\\Program Files\\\\Blender Foundation\\\\Blender 4.5\\\\4.5\\\\scripts\\\\addons_core\\\\cycles\\\\shader/stdosl.h:141
+# float  clamp (float x, float minval, float maxval) { return max(min(x,maxval),minval); }
+	min		$tmp27 $tmp26 $const9 	%filename{"C:\\\\Program Files\\\\Blender Foundation\\\\Blender 4.5\\\\4.5\\\\scripts\\\\addons_core\\\\cycles\\\\shader/stdosl.h"} %line{141} %argrw{"wrr"}
+	max		$tmp22 $tmp27 $const8 	%argrw{"wrr"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:55
+#     vector w = raw_w / max(raw_w[0] + raw_w[1] + raw_w[2], 1.0e-8);
+	compref		$tmp30 object_n $const4 	%filename{"D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl"} %line{55} %argrw{"wrr"}
+	abs		$tmp29 $tmp30 	%argrw{"wr"}
+	sub		$tmp31 $tmp29 $const6 	%argrw{"wrr"}
+	mul		$tmp32 $tmp31 $const7 	%argrw{"wrr"}
+	functioncall	$const10 41 	%argrw{"r"}
+# C:\\\\Program Files\\\\Blender Foundation\\\\Blender 4.5\\\\4.5\\\\scripts\\\\addons_core\\\\cycles\\\\shader/stdosl.h:141
+# float  clamp (float x, float minval, float maxval) { return max(min(x,maxval),minval); }
+	min		$tmp33 $tmp32 $const9 	%filename{"C:\\\\Program Files\\\\Blender Foundation\\\\Blender 4.5\\\\4.5\\\\scripts\\\\addons_core\\\\cycles\\\\shader/stdosl.h"} %line{141} %argrw{"wrr"}
+	max		$tmp28 $tmp33 $const8 	%argrw{"wrr"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:52
+#         clamp((abs(object_n[0]) - 0.5735764503) * 4.0720658302, 0.0, 1.0),
+	vector		raw_w $tmp16 $tmp22 $tmp28 	%filename{"D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl"} %line{52} %argrw{"wrrr"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:56
+# 
+	compref		$tmp35 raw_w $const3 	%line{56} %argrw{"wrr"}
+	compref		$tmp36 raw_w $const5 	%argrw{"wrr"}
+	add		$tmp37 $tmp35 $tmp36 	%argrw{"wrr"}
+	compref		$tmp38 raw_w $const4 	%argrw{"wrr"}
+	add		$tmp39 $tmp37 $tmp38 	%argrw{"wrr"}
+	max		$tmp34 $tmp39 $const11 	%argrw{"wrr"}
+	div		w raw_w $tmp34 	%argrw{"wrr"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:60
+#              PivotU, PivotV, Angle, uy, vy);
+	compref		$tmp40 q $const3 	%line{60} %argrw{"wrr"}
+	neg		$tmp41 $tmp40 	%argrw{"wr"}
+	compref		$tmp42 q $const4 	%argrw{"wrr"}
+	neg		$tmp43 $tmp42 	%argrw{"wr"}
+	functioncall	$const12 72 	%argrw{"r"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:15
+#     float py = pivot_v - 1.0;
+	assign		___368_px PivotU 	%line{15} %argrw{"wr"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:16
+#     float a = (raw_u - offset_u) * tile_u - px;
+	sub		___368_py PivotV $const9 	%line{16} %argrw{"wrr"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:17
+#     float b = (raw_v - offset_v) * tile_v - py;
+	sub		$tmp44 $tmp41 OffsetU 	%line{17} %argrw{"wrr"}
+	mul		$tmp45 $tmp44 TileU 	%argrw{"wrr"}
+	sub		___368_a $tmp45 ___368_px 	%argrw{"wrr"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:18
+#     float c = cos(angle);
+	sub		$tmp46 $tmp43 OffsetV 	%line{18} %argrw{"wrr"}
+	mul		$tmp47 $tmp46 TileV 	%argrw{"wrr"}
+	sub		___368_b $tmp47 ___368_py 	%argrw{"wrr"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:19
+#     float s = sin(angle);
+	cos		___368_c Angle 	%line{19} %argrw{"wr"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:20
+#     u = a * c - b * s + px;
+	sin		___368_s Angle 	%line{20} %argrw{"wr"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:21
+#     v = a * s + b * c + py;
+	mul		$tmp48 ___368_a ___368_c 	%line{21} %argrw{"wrr"}
+	mul		$tmp49 ___368_b ___368_s 	%argrw{"wrr"}
+	sub		$tmp50 $tmp48 $tmp49 	%argrw{"wrr"}
+	add		uy $tmp50 ___368_px 	%argrw{"wrr"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:22
+# }
+	mul		$tmp51 ___368_a ___368_s 	%line{22} %argrw{"wrr"}
+	mul		$tmp52 ___368_b ___368_c 	%argrw{"wrr"}
+	add		$tmp53 $tmp51 $tmp52 	%argrw{"wrr"}
+	add		vy $tmp53 ___368_py 	%argrw{"wrr"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:62
+#              PivotU, PivotV, Angle, ux, vx);
+	compref		$tmp54 q $const4 	%line{62} %argrw{"wrr"}
+	neg		$tmp55 $tmp54 	%argrw{"wr"}
+	compref		$tmp56 q $const5 	%argrw{"wrr"}
+	neg		$tmp57 $tmp56 	%argrw{"wr"}
+	functioncall	$const12 95 	%argrw{"r"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:15
+#     float py = pivot_v - 1.0;
+	assign		___368_px PivotU 	%line{15} %argrw{"wr"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:16
+#     float a = (raw_u - offset_u) * tile_u - px;
+	sub		___368_py PivotV $const9 	%line{16} %argrw{"wrr"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:17
+#     float b = (raw_v - offset_v) * tile_v - py;
+	sub		$tmp58 $tmp55 OffsetU 	%line{17} %argrw{"wrr"}
+	mul		$tmp59 $tmp58 TileU 	%argrw{"wrr"}
+	sub		___368_a $tmp59 ___368_px 	%argrw{"wrr"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:18
+#     float c = cos(angle);
+	sub		$tmp60 $tmp57 OffsetV 	%line{18} %argrw{"wrr"}
+	mul		$tmp61 $tmp60 TileV 	%argrw{"wrr"}
+	sub		___368_b $tmp61 ___368_py 	%argrw{"wrr"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:19
+#     float s = sin(angle);
+	cos		___368_c Angle 	%line{19} %argrw{"wr"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:20
+#     u = a * c - b * s + px;
+	sin		___368_s Angle 	%line{20} %argrw{"wr"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:21
+#     v = a * s + b * c + py;
+	mul		$tmp62 ___368_a ___368_c 	%line{21} %argrw{"wrr"}
+	mul		$tmp63 ___368_b ___368_s 	%argrw{"wrr"}
+	sub		$tmp64 $tmp62 $tmp63 	%argrw{"wrr"}
+	add		ux $tmp64 ___368_px 	%argrw{"wrr"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:22
+# }
+	mul		$tmp65 ___368_a ___368_s 	%line{22} %argrw{"wrr"}
+	mul		$tmp66 ___368_b ___368_c 	%argrw{"wrr"}
+	add		$tmp67 $tmp65 $tmp66 	%argrw{"wrr"}
+	add		vx $tmp67 ___368_py 	%argrw{"wrr"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:64
+#              PivotU, PivotV, Angle, uz, vz);
+	compref		$tmp68 q $const3 	%line{64} %argrw{"wrr"}
+	neg		$tmp69 $tmp68 	%argrw{"wr"}
+	compref		$tmp70 q $const5 	%argrw{"wrr"}
+	neg		$tmp71 $tmp70 	%argrw{"wr"}
+	functioncall	$const12 118 	%argrw{"r"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:15
+#     float py = pivot_v - 1.0;
+	assign		___368_px PivotU 	%line{15} %argrw{"wr"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:16
+#     float a = (raw_u - offset_u) * tile_u - px;
+	sub		___368_py PivotV $const9 	%line{16} %argrw{"wrr"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:17
+#     float b = (raw_v - offset_v) * tile_v - py;
+	sub		$tmp72 $tmp69 OffsetU 	%line{17} %argrw{"wrr"}
+	mul		$tmp73 $tmp72 TileU 	%argrw{"wrr"}
+	sub		___368_a $tmp73 ___368_px 	%argrw{"wrr"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:18
+#     float c = cos(angle);
+	sub		$tmp74 $tmp71 OffsetV 	%line{18} %argrw{"wrr"}
+	mul		$tmp75 $tmp74 TileV 	%argrw{"wrr"}
+	sub		___368_b $tmp75 ___368_py 	%argrw{"wrr"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:19
+#     float s = sin(angle);
+	cos		___368_c Angle 	%line{19} %argrw{"wr"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:20
+#     u = a * c - b * s + px;
+	sin		___368_s Angle 	%line{20} %argrw{"wr"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:21
+#     v = a * s + b * c + py;
+	mul		$tmp76 ___368_a ___368_c 	%line{21} %argrw{"wrr"}
+	mul		$tmp77 ___368_b ___368_s 	%argrw{"wrr"}
+	sub		$tmp78 $tmp76 $tmp77 	%argrw{"wrr"}
+	add		uz $tmp78 ___368_px 	%argrw{"wrr"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:22
+# }
+	mul		$tmp79 ___368_a ___368_s 	%line{22} %argrw{"wrr"}
+	mul		$tmp80 ___368_b ___368_c 	%argrw{"wrr"}
+	add		$tmp81 $tmp79 $tmp80 	%argrw{"wrr"}
+	add		vz $tmp81 ___368_py 	%argrw{"wrr"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:69
+#     float ty = vy - floor(vy);
+	floor		$tmp82 uy 	%line{69} %argrw{"wr"}
+	sub		sy uy $tmp82 	%argrw{"wrr"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:70
+#     float sx = ux - floor(ux);
+	floor		$tmp83 vy 	%line{70} %argrw{"wr"}
+	sub		ty vy $tmp83 	%argrw{"wrr"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:71
+#     float tx = vx - floor(vx);
+	floor		$tmp84 ux 	%line{71} %argrw{"wr"}
+	sub		sx ux $tmp84 	%argrw{"wrr"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:72
+#     float sz = uz - floor(uz);
+	floor		$tmp85 vx 	%line{72} %argrw{"wr"}
+	sub		tx vx $tmp85 	%argrw{"wrr"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:73
+#     float tz = vz - floor(vz);
+	floor		$tmp86 uz 	%line{73} %argrw{"wr"}
+	sub		sz uz $tmp86 	%argrw{"wrr"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:74
+# 
+	floor		$tmp87 vz 	%line{74} %argrw{"wr"}
+	sub		tz vz $tmp87 	%argrw{"wrr"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:76
+#     color plane_y = texture(Texture, sy, ty, "missingcolor", missing);
+	assign		missing $const13 	%line{76} %argrw{"wr"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:77
+#     color plane_x = texture(Texture, sx, tx, "missingcolor", missing);
+	texture		plane_y Texture sy ty $const14 missing 	%line{77} %argrw{"wrrrrr"} %argderivs{2,3}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:78
+#     color plane_z = texture(Texture, sz, tz, "missingcolor", missing);
+	texture		plane_x Texture sx tx $const14 missing 	%line{78} %argrw{"wrrrrr"} %argderivs{2,3}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:79
+# 
+	texture		plane_z Texture sz tz $const14 missing 	%line{79} %argrw{"wrrrrr"} %argderivs{2,3}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_triplanar_probe.osl:83
+# }
+	compref		$tmp88 w $const5 	%line{83} %argrw{"wrr"}
+	mul		$tmp89 plane_y $tmp88 	%argrw{"wrr"}
+	compref		$tmp90 w $const3 	%argrw{"wrr"}
+	mul		$tmp91 plane_x $tmp90 	%argrw{"wrr"}
+	add		$tmp92 $tmp89 $tmp91 	%argrw{"wrr"}
+	compref		$tmp93 w $const4 	%argrw{"wrr"}
+	mul		$tmp94 plane_z $tmp93 	%argrw{"wrr"}
+	add		Color $tmp92 $tmp94 	%argrw{"wrr"}
+	end

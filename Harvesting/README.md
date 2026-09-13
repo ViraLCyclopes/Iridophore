@@ -44,6 +44,14 @@ families were tested against all 48 known seeds and the best result was 3/48, wh
 Neighbouring seeds differ as much as random pairs, so interpolation is out too. Measurement is the
 only way.
 
+## Updated scanner workflow
+
+Read [ALGORITHM.md](ALGORITHM.md) for the current scanner, conflict handling and
+verification limits. Swept captures now require an explicit association with the
+seed table used when they were taken: use **Associate sweep...** in the GUI, or
+`python harvest_blocks.py <capture-name> --sweep-table <that-run-seeds.json>`.
+The latest sweep table is no longer silently applied to older captures.
+
 ## Where the numbers actually come from
 
 The game computes the coefficients on the CPU and uploads them in the **GPU material buffer**. They

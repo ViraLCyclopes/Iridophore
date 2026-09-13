@@ -163,8 +163,8 @@ def report(results, rot_tab, out=sys.stdout):
 
     unknown = merged[NO_FINGER]
     if not unknown:
-        p("\nVERDICT: nothing unattributed. The byte-scanner is extracting everything these")
-        p("captures hold -- more seeds requires more captures, not better tooling.")
+        p("\nNo unattributed candidates in this diagnostic's aligned structural scan.")
+        p("This does not prove the capture contains no other blocks or compressed buffers.")
         return merged
 
     grads = {_grad_key(r["blk"]) for r in unknown.values()}
@@ -204,7 +204,7 @@ def report(results, rot_tab, out=sys.stdout):
 def main(only=()):
     if not os.path.isdir(CAPS):
         sys.exit(f"no capture folder at {CAPS}")
-    caps = sorted(f for f in os.listdir(CAPS) if f.endswith(".rdc"))
+    caps = sorted(f for f in os.listdir(CAPS) if f.lower().endswith(".rdc"))
     if only:
         caps = [c for c in caps if any(o in c for o in only)]
     if not caps:
@@ -219,6 +219,7 @@ def main(only=()):
     results = []
     for i, cap in enumerate(caps, 1):
         path = os.path.join(CAPS, cap)
+        tab = hb.variant_table(hb.integrity.capture_mapping(path, _hpaths.work_dir()))
         print(f"[{i}/{len(caps)}] {cap} ({os.path.getsize(path)/1e9:.2f} GB)", flush=True)
         seen, raw = audit_capture(path, tab)
         print("      " + "  ".join(f"{b}={len(seen[b])}" for b in BUCKETS), flush=True)

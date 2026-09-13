@@ -12,7 +12,8 @@ structural filter over gigabytes. Candidates are then IDENTIFIED by matching six
 (brightness x2, saturation x2, palette scale, palette offset) against the shipped-variant table,
 and CONFIRMED by predicting both hue matrices from the FGM's rotation values.
 
-That is 10+ independent values agreeing, so a match is not in doubt.
+These correlated checks provide evidence, not proof of identity. Contradictory
+observations are quarantined, and sweep tables must be associated with each capture.
 
 Verified end to end on Albertosaurus_Juvenile variant 4 (seed 29, complexity 3).
 """
@@ -22,6 +23,7 @@ import struct
 import sys
 
 import numpy as np
+import harvest_integrity as integrity
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 import _hpaths  # noqa: E402  (puts the package and its vendor/ folder on sys.path)
@@ -80,7 +82,7 @@ def _fingerprints(row):
     return out
 
 
-def variant_table():
+def variant_table(sweep_rows=()):
     """{(word6, word7): [variant rows]} -- the identifying f16 fingerprint per variant.
 
     A row is registered under every encoding it could have produced (see `_f16_encodings`), so one
@@ -92,27 +94,9 @@ def variant_table():
     saturation are material-level and do match; the hue matrices then confirm.
     """
     rows = json.load(open(_hpaths.all_seeds()))
-    # Rows for a seed-sweep mod, if one is installed. `gen_seedsweep_round.py` gives every swept
-    # variant a brightness/saturation quadruple that collides with none of the shipped ones, which
-    # is the only thing that makes the swept blocks identifiable -- without it all 36 share one
-    # fingerprint and every match is ambiguous across all 36 seeds.
-    #
-    # ASK _hpaths, DO NOT REBUILD THE PATH. `gen_seedsweep_v2` writes this table to
-    # `_hpaths.seed_table()` -- the per-user work folder -- because run-time state must survive
-    # reinstalling the tool. This read used to be `os.path.join(HERE, ...)`, the source folder,
-    # which the generator never writes to, so the file was never found and the sweep contributed
-    # NOTHING. That is silent by construction: `variant_table` just carries on with the shipped
-    # rows, every swept animal lands in NO_FINGER, and the run reports "0 confirmed blocks" as
-    # though the capture were empty. Measured on JWE3_2026.08.02_00.27_frame26691.rdc: 0 blocks
-    # before, 1 after (seed 40, troodon) -- the capture was fine the whole time.
-    sweep = _hpaths.seed_table()
-    if os.path.isfile(sweep):
-        extra = json.load(open(sweep))
-        rows = rows + extra
-        print(f"  + {len(extra)} seed-sweep rows from {sweep}")
-    else:
-        # Say so. A sweep that silently fails to load costs a whole capture session.
-        print(f"  (no seed-sweep table at {sweep} -- swept variants will NOT be identifiable)")
+    # Fingerprints are reused between sweeps. The latest table cannot identify an
+    # older capture safely; callers must supply that capture's immutable snapshot.
+    rows = rows + list(sweep_rows)
     tab = {}
     for r in rows:
         try:
@@ -152,6 +136,8 @@ def plausible(blk):
     park advice may still be right -- the viewer draws one animal, so it can only ever hold one
     block -- but it is no longer supported by that experiment. Re-test before repeating it.
     """
+    if blk.get("gradientEnabled") is False:
+        return False
     amp = blk["gradAmplitude"]
     frq = blk["gradFreq"]
     if not any(amp) or not any(frq):
@@ -212,112 +198,122 @@ def seed_pair(row):
     return (round(row["u_globalPaletteSeed"]), round(row["u_globalPaletteMaximumComplexity"]))
 
 
-def scan(path, tab, chunk=128 << 20, filter_degenerate=True):
+def scan(path, tab, chunk=32 << 20, filter_degenerate=True):
     """Yield (byte_offset, variant_row, decoded_block, confirming_rows) for every confirmed block.
 
     Several variants of the same species share a seed (female/juvenile/male of one variant index),
     so more than one confirming row is normal and harmless. What matters is whether they AGREE on
     the (seed, complexity) pair -- the caller decides.
     """
+    if chunk < 48 or chunk % 4:
+        raise ValueError("chunk must be a multiple of four and at least 48 bytes")
+    if not tab:
+        return
+    # Small half-word lookup tables avoid sorting millions of uint32s for isin.
+    # This is only a coarse filter; the complete two-word dictionary still decides.
+    low, high = np.zeros(65536, dtype=bool), np.zeros(65536, dtype=bool)
+    for first, _ in tab:
+        low[first & 65535] = True
+        high[first >> 16] = True
     size = os.path.getsize(path)
     with open(path, "rb") as fh:
-        base = 0
-        while base < size:
+        for base in range(0, size, chunk):
             fh.seek(base)
-            buf = fh.read(chunk)
-            if len(buf) < 48:
-                break
-            a = np.frombuffer(buf[:(len(buf) // 4) * 4], dtype=np.uint32)
-            for i in candidates(a):
-                w = [int(x) for x in a[i:i + 12]]
-                key = (w[6], w[7])
-                rows = tab.get(key)
-                if not rows:
+            buf = fh.read(chunk + 47)
+            # A block can occur at any byte offset in the capture container. Each
+            # starting offset belongs to exactly one chunk; overlap is read-only.
+            for alignment in range(4):
+                count = (len(buf) - alignment) // 4
+                if count < 12:
                     continue
-                blk = mb.decode(w)
-                if filter_degenerate and not plausible(blk):
-                    continue
-                # confirm: both hue matrices must match what the FGM's rotations predict
-                hits = confirm(blk, rows)
-                if hits:
-                    yield base + int(i) * 4, hits[0], blk, hits
-            # overlap so a block straddling a chunk boundary is not lost
-            base += len(buf) - 64 if len(buf) == chunk else len(buf)
+                a = np.frombuffer(buf, dtype="<u4", count=count, offset=alignment)
+                n = min(count - 11, (chunk - 1 - alignment) // 4 + 1)
+                brightness = a[6:6+n]
+                possible = low[brightness & 65535] & high[brightness >> 16]
+                for i in np.flatnonzero(possible):
+                    rows = tab.get((int(a[i+6]), int(a[i+7])))
+                    if not rows:
+                        continue
+                    blk = mb.decode([int(x) for x in a[i:i+12]])
+                    if not (mb.is_hue_matrix(blk["hueMatrixBase"]) and
+                            mb.is_hue_matrix(blk["hueMatrixPalette"])):
+                        continue
+                    if filter_degenerate and not plausible(blk):
+                        continue
+                    hits = confirm(blk, rows)
+                    if hits:
+                        yield base + alignment + int(i)*4, hits[0], blk, hits
 
 
-def main(only=()):
-    """Scan captures and MERGE into the coefficient file.
-
-    `only` filters captures by substring, so a new capture can be harvested on its own instead of
-    re-reading five gigabytes. The merge matters: the old version rebuilt the file from whatever
-    this run found, so a targeted scan would have silently deleted every previously harvested row.
-    """
+def main(only=(), sweep_table=None):
+    """Reconcile a complete scan before saving. No game files are modified."""
     if not os.path.isdir(CAPS):
         sys.exit(f"no capture folder at {CAPS}")
-    caps = sorted(f for f in os.listdir(CAPS) if f.endswith(".rdc"))
+    caps = sorted(f for f in os.listdir(CAPS) if f.lower().endswith(".rdc"))
     if only:
         caps = [c for c in caps if any(o in c for o in only)]
     if not caps:
         sys.exit(f"no matching .rdc captures in {CAPS}")
-    tab = variant_table()
-    print(f"{len(tab)} distinct variant fingerprints; scanning {len(caps)} captures\n")
-
-    found = json.load(open(OUT)) if os.path.isfile(OUT) else {}
-    before = len(found)
+    if sweep_table and len(caps) != 1:
+        sys.exit("--sweep-table requires exactly one selected capture")
+    integrity.read_table(OUT)  # fail before scanning if the user's table is damaged
+    bundled = integrity.read_table(os.path.join(_hpaths.DATA, "gradient_coefficients.json"))
+    observations, reports = {}, []
     for cap in caps:
         path = os.path.join(CAPS, cap)
-        print(f"=== {cap} ({os.path.getsize(path)/1e9:.2f} GB) ===", flush=True)
-        n = ambiguous = conflicts = 0
+        start = os.stat(path)
+        sweep = integrity.capture_mapping(path, _hpaths.work_dir(), sweep_table)
+        tab = variant_table(sweep)
+        print(f"{cap}: {start.st_size/1e9:.2f} GB; {len(sweep)} capture-bound sweep rows", flush=True)
+        if not sweep:
+            print("  No sweep association: shipped variants only. For a swept capture, "
+                  "select it with --sweep-table <its-seeds.json>.", flush=True)
+        n = ambiguous = 0
         for off, row, blk, hits in scan(path, tab):
-            # A block whose confirming rows disagree about the seed cannot be attributed. Recording
-            # it would put a gradient under the wrong seed, which nothing downstream can detect.
             pairs = {seed_pair(h) for h in hits}
-            if len(pairs) > 1:
+            if len(pairs) != 1:
                 ambiguous += 1
-                print(f"  ?? AMBIGUOUS at +{off}: {sorted(pairs)} "
-                      f"({', '.join(sorted({h['fgm'] for h in hits})[:3])}) -- skipped")
                 continue
+            seed, complexity = next(iter(pairs))
+            key = f"{seed}_{complexity}"
+            rec = dict(seed=seed, complexity=complexity,
+                       **{f: list(blk[f]) for f in integrity.FIELDS})
+            rec.update({"from": [row["ovl"].replace(chr(92), "/").split("/")[-1], row["fgm"]],
+                        "capture": cap, "offset": off})
+            integrity.validate(rec, key)
+            variants = observations.setdefault(key, [])
+            # Repeated buffer copies are not independent votes.
+            if not any(r["capture"] == cap and integrity.signature(r) == integrity.signature(rec)
+                       for r in variants):
+                variants.append(rec)
             n += 1
-            key = f"{round(row['u_globalPaletteSeed'])}_{round(row['u_globalPaletteMaximumComplexity'])}"
-            rec = {
-                "seed": round(row["u_globalPaletteSeed"]),
-                "complexity": round(row["u_globalPaletteMaximumComplexity"]),
-                "gradOffset": blk["gradOffset"],
-                "gradAmplitude": blk["gradAmplitude"],
-                "gradFreq": blk["gradFreq"],
-                "gradPhase": blk["gradPhase"],
-                "from": [row["ovl"].split("\\")[-1], row["fgm"]],
-                "capture": cap,
-                "offset": off,
-            }
-            # compare as LISTS: the stored row came back from JSON as a list while a freshly
-            # decoded one is a tuple out of s10x3, so a plain != reported a CONFLICT on every
-            # re-harvest of a seed we already had, with identical numbers printed either side.
-            if key in found and list(found[key]["gradFreq"]) != list(rec["gradFreq"]):
-                # KEEP THE INCUMBENT. Two blocks disagreeing on one (seed, complexity) means one of
-                # them is a false positive, and there is nothing here that says which -- so the old
-                # behaviour, overwriting, was a coin flip that silently rewrote a good row. The
-                # chasmosaurus 30_5 conflict was exactly this.
-                conflicts += 1
-                print(f"  !! CONFLICT at {key}: kept {found[key]['gradFreq']} "
-                      f"({found[key]['from'][1]}), rejected {rec['gradFreq']} ({rec['from'][1]})")
-                continue
-            found[key] = rec
-        print(f"  {n} confirmed blocks"
-              f"{f', {ambiguous} ambiguous skipped' if ambiguous else ''}"
-              f"{f', {conflicts} conflicting rejected' if conflicts else ''}, "
-              f"{len(found)} distinct (seed,complexity) so far\n", flush=True)
+        end = os.stat(path)
+        if (start.st_size, start.st_mtime_ns) != (end.st_size, end.st_mtime_ns):
+            raise RuntimeError("capture changed during scan; no coefficients saved: " + cap)
+        reports.append(dict(capture=cap, confirmed=n, ambiguous=ambiguous))
+        print(f"  {n} enabled, plausible, unambiguous blocks; {ambiguous} ambiguous skipped", flush=True)
 
-    json.dump(found, open(OUT, "w"), indent=1)
-    print("=" * 72)
-    print(f"{len(found)} distinct (seed, complexity) pairs "
-          f"({len(found) - before} new this run)  ->  {OUT}")
-    print("(the shipped variants use 720 pairs in total)")
-    for k in sorted(found, key=lambda s: [int(x) for x in s.split("_")])[:20]:
-        r = found[k]
-        print(f"  seed {r['seed']:>3} cplx {r['complexity']}  "
-              f"off{tuple(r['gradOffset'])} amp{tuple(r['gradAmplitude'])} "
-              f"freq{tuple(r['gradFreq'])} pha{tuple(r['gradPhase'])}")
+    existing = integrity.read_table(OUT)
+    report_path = OUT + ".harvest-report.json"
+    # Unresolved contradictions stay quarantined across runs, even if a later
+    # targeted scan happens to contain only one of the contradictory values.
+    if os.path.isfile(report_path):
+        with open(report_path, encoding="utf-8") as fh:
+            previous = json.load(fh)
+        for entries in previous.get("conflicts", {}).values():
+            for entry in entries:
+                if entry['source'] == 'observed':
+                    values = observations.setdefault(entry['key'], [])
+                    if entry['row'] not in values:
+                        values.append(entry['row'])
+    found, conflicts = integrity.reconcile(existing, bundled, observations)
+    integrity.atomic_json(report_path, {"captures": reports, "conflicts": conflicts,
+                                       "observations": observations})
+    integrity.atomic_json(OUT, found)
+    print(f"{len(found)-len(existing)} new pairs; {len(conflicts)} conflicting seeds quarantined")
+    print(f"coefficients -> {OUT}")
+    print(f"scan evidence -> {report_path}")
+    return 2 if conflicts else 0
 
 
 def selftest():
@@ -407,7 +403,16 @@ def selftest():
 
 
 if __name__ == "__main__":
-    if "--selftest" in sys.argv:
+    import argparse
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("captures", nargs="*", help="capture filename substring(s)")
+    parser.add_argument("--sweep-table", help="bind ONE selected capture to its sweep seed table")
+    parser.add_argument("--captures-dir", help="capture folder for this run")
+    parser.add_argument("--selftest", action="store_true")
+    args = parser.parse_args()
+    if args.captures_dir:
+        CAPS = os.path.abspath(args.captures_dir)
+    if args.selftest:
         selftest()
     else:
-        main(only=tuple(a for a in sys.argv[1:] if not a.startswith("-")))
+        sys.exit(main(only=tuple(args.captures), sweep_table=args.sweep_table))

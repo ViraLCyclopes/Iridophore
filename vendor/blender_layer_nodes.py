@@ -89,9 +89,11 @@ DEFAULT_PROJECTION_POSITION_SCALE = 1.0
 
 # Blender's BOX mode performs the three projected samples inside one texture node.  A modest
 # blend avoids the hard plane boundaries produced by 0.0 without expanding every projected
-# layer into nine texture nodes. The expanded prototype rendered black in Blender 4.5, but that
-# result has NOT been established as a Cycles complexity limit; invalid graph maths or a bad
-# intermediate remains possible. This is a compact viewport approximation of shader 0300's blend.
+# layer into nine texture nodes. A 2026-08-22 OptiX isolation proved that the normal/weight maths,
+# three-sample mixer and each transformed plane work separately, but keeping a SECOND transformed
+# plane live makes the full material black. That strongly indicates local Cycles shader-stack
+# pressure (not total node count), although no compiler message was captured. Node groups are
+# inlined and do not change the result. BOX is therefore the compact production approximation.
 PROJECTION_BLEND = 0.25
 
 SHARPNESS = 2.0e4       # %1885: (h*B - prevHeight*A) * 20000
@@ -301,7 +303,11 @@ _SHARED = {}
 
 # The datablock name each shared-helper builder writes. Needed because `_shared` has to look the
 # group up in `bpy.data` BEFORE calling the builder -- see below.
-SHARED_GROUP_NAMES = {"blend_group": "JWE3_LayerBlend", "satcon_group": "JWE3_SatContrast"}
+SHARED_GROUP_NAMES = {
+    "blend_group": "JWE3_LayerBlend",
+    "satcon_group": "JWE3_SatContrast",
+    "roughness_overlay_group": "JWE3_RoughnessOverlay",
+}
 
 
 def _shared(fn):
@@ -430,6 +436,38 @@ def satcon_group():
     return layout(g)
 
 
+def roughness_overlay_group():
+    """Exact JWE3 base/layer roughness Overlay, hidden behind one top-level node.
+
+    The shader branches on the base-normal alpha:
+        base < .5 -> 2*layer*base
+        otherwise -> 1 - 2*(1-layer)*(1-base)
+
+    Keeping the arithmetic inside a shared group prevents seven implementation-detail Math/Mix
+    nodes from obscuring the material's top-level data flow.
+    """
+    g, gin, gout = _new_group(
+        "JWE3_RoughnessOverlay",
+        [("BaseRoughness", "NodeSocketFloat"), ("LayerRoughness", "NodeSocketFloat")],
+        [("Roughness", "NodeSocketFloat")])
+    m = _mk(g)
+    base = gin.outputs["BaseRoughness"]
+    layer = gin.outputs["LayerRoughness"]
+    low = m("MULTIPLY", m("MULTIPLY", layer, base), 2.0)
+    high = m(
+        "SUBTRACT", 1.0,
+        m("MULTIPLY",
+          m("MULTIPLY", m("SUBTRACT", 1.0, layer), m("SUBTRACT", 1.0, base)), 2.0))
+    base_is_low = m("LESS_THAN", base, 0.5)
+    mix = g.nodes.new("ShaderNodeMix")
+    mix.data_type = "FLOAT"
+    g.links.new(base_is_low, mix.inputs["Factor"])
+    g.links.new(high, mix.inputs[2])
+    g.links.new(low, mix.inputs[3])
+    g.links.new(mix.outputs[0], gout.inputs["Roughness"])
+    return layout(g)
+
+
 # --------------------------------------------------------------------------- the stack
 
 def _layer_uv(nt, uv_out, p, x, y):
@@ -469,34 +507,49 @@ def _layer_uv(nt, uv_out, p, x, y):
     return post.outputs[0]
 
 
-def _layer_projection(nt, object_out, p, x, y, position_scale, position_center):
-    """Build centred, radius-normalised object coordinates for Blender BOX projection."""
+def _projection_position(nt, object_out, position_scale, position_center, x, y):
+    """Centre and radius-normalise object position ONCE for the whole material.
+
+    The old builder repeated these two nodes inside every projected layer.  JWE3 computes its
+    cluster/object position before entering the 16-layer loop, so sharing it is both closer to the
+    shader and materially cheaper for Cycles' per-shader stack.
+    """
+    centre = nt.nodes.new("ShaderNodeVectorMath")
+    centre.operation = "SUBTRACT"
+    centre.label = "JWE3 projection: model centre"
+    centre.location = (x, y)
+    nt.links.new(object_out, centre.inputs[0])
+    centre.inputs[1].default_value = tuple(position_center)
+    scale = nt.nodes.new("ShaderNodeVectorMath")
+    scale.operation = "SCALE"
+    scale.label = "JWE3 projection: 1 / model radius"
+    scale.location = (x + 190, y)
+    nt.links.new(centre.outputs[0], scale.inputs[0])
+    scale.inputs[3].default_value = position_scale
+    return scale.outputs[0]
+
+
+def _layer_projection(nt, projection_position, p, x, y):
+    """Apply one layer's tile/offset/rotation to shared normalised object position."""
     off = p.get("pUVOffset", [0.0, 0.0])
     tile = p.get("pUVTile", [1.0, 1.0])
     pivot = p.get("pUVRotationPosition", [0.0, 0.0])
     angle = p.get("pUVRotationAngle", [0.0])[0] * math.pi
-    centre = nt.nodes.new("ShaderNodeVectorMath")
-    centre.operation = "SUBTRACT"
-    centre.location = (x, y)
-    nt.links.new(object_out, centre.inputs[0])
-    centre.inputs[1].default_value = tuple(position_center)
     pre = nt.nodes.new("ShaderNodeVectorMath")
     pre.operation = "MULTIPLY_ADD"
-    pre.location = (x + 190, y)
-    nt.links.new(centre.outputs[0], pre.inputs[0])
-    pre.inputs[1].default_value = (tile[0] * position_scale,
-                                   tile[1] * position_scale,
-                                   max(tile) * position_scale)
+    pre.location = (x, y)
+    nt.links.new(projection_position, pre.inputs[0])
+    pre.inputs[1].default_value = (tile[0], tile[1], max(tile))
     pre.inputs[2].default_value = (-off[0] * tile[0] - pivot[0],
                                    -off[1] * tile[1] - pivot[1], 0.0)
     rot = nt.nodes.new("ShaderNodeVectorRotate")
     rot.rotation_type = "Z_AXIS"
-    rot.location = (x + 380, y)
+    rot.location = (x + 190, y)
     nt.links.new(pre.outputs[0], rot.inputs["Vector"])
     rot.inputs["Angle"].default_value = angle
     post = nt.nodes.new("ShaderNodeVectorMath")
     post.operation = "ADD"
-    post.location = (x + 570, y)
+    post.location = (x + 380, y)
     nt.links.new(rot.outputs[0], post.inputs[0])
     post.inputs[1].default_value = (pivot[0], pivot[1], 0.0)
     return post.outputs[0]
@@ -554,6 +607,560 @@ def _slice_path(layer, slot, suffix=""):
     return None
 
 
+def _osl_quote(path):
+    """Return an OSL string literal for a local texture path."""
+    return '"' + os.path.abspath(path).replace("\\", "/").replace('"', '\\"') + '"'
+
+
+def _osl_layer_stack_source(layer_entries, shader_name):
+    """Generate one compact OSL shader for the complete ordered layer stack.
+
+    Cycles' ordinary node backend overflows when several independently transformed projected
+    texture branches remain live inside the full dinosaur graph.  Keeping the entire loop in one
+    OSL Script node avoids that SVM pressure and, unlike Blender BOX sampling, preserves shader
+    0300's sharpened three-plane weights. Texture names are literals because Blender deliberately
+    omits OSL string parameters from Script-node sockets.
+    """
+    out = [r'''
+float sat(float x) { return clamp(x, 0.0, 1.0); }
+float smooth01(float x) { x = sat(x); return x*x*(3.0 - 2.0*x); }
+float wrap01(float x) { return x - floor(x); }
+
+void layer_uv(float raw_u, float raw_v, float offset_u, float offset_v,
+              float tile_u, float tile_v, float pivot_u, float pivot_v, float angle,
+              output float uo, output float vo)
+{
+    // IR %941-%972. The extracted pivot convention contains an integer V shift;
+    // explicit repeat wrapping makes that shift immaterial while preserving rotation.
+    float py = pivot_v - 1.0;
+    float a = (raw_u - offset_u) * tile_u - pivot_u;
+    float b = (raw_v - offset_v) * tile_v - py;
+    float c = cos(angle);
+    float s = sin(angle);
+    uo = wrap01(a*c - b*s + pivot_u);
+    vo = wrap01(a*s + b*c + py);
+}
+
+color repeat_sample(string filename, float su, float tv)
+{
+    return texture(filename, wrap01(su), wrap01(tv),
+                   "missingcolor", color(1.0, 0.0, 1.0));
+}
+
+color projected_sample(string filename, vector q, vector weights,
+                       float offset_u, float offset_v, float tile_u, float tile_v,
+                       float pivot_u, float pivot_v, float angle)
+{
+    float uy, vy, ux, vx, uz, vz;
+    // Shader 0300: (-X,-Z)*|Ny|, (-Z,-Y)*|Nx|, (-X,-Y)*|Nz|.
+    layer_uv(-q[0], -q[2], offset_u, offset_v, tile_u, tile_v,
+             pivot_u, pivot_v, angle, uy, vy);
+    layer_uv(-q[2], -q[1], offset_u, offset_v, tile_u, tile_v,
+             pivot_u, pivot_v, angle, ux, vx);
+    layer_uv(-q[0], -q[1], offset_u, offset_v, tile_u, tile_v,
+             pivot_u, pivot_v, angle, uz, vz);
+    color plane_y = repeat_sample(filename, uy, vy);
+    color plane_x = repeat_sample(filename, ux, vx);
+    color plane_z = repeat_sample(filename, uz, vz);
+    return plane_y*weights[1] + plane_x*weights[0] + plane_z*weights[2];
+}
+
+color sat_contrast(color value, float saturation, float contrast)
+{
+    float lum = sqrt(value[0]*value[0]*0.2126
+                   + value[1]*value[1]*0.7152
+                   + value[2]*value[2]*0.0722);
+    return color(
+        sat(((value[0]-lum)*saturation + lum-0.5)*contrast + 0.5),
+        sat(((value[1]-lum)*saturation + lum-0.5)*contrast + 0.5),
+        sat(((value[2]-lum)*saturation + lum-0.5)*contrast + 0.5));
+}
+''']
+    out.append("shader %s(\n" % shader_name)
+    out.append("    point UV = point(0.0),\n")
+    out.append("    point ModelCenter = point(0.0),\n")
+    out.append("    float PositionScale = 1.0,\n")
+    out.append("    float ReliefScale = 1.0,\n")
+    out.append("    int RoughLayerLimit = 16,\n")
+    out.append("    output color Albedo = color(0.5),\n")
+    out.append("    output float Height = 0.0,\n")
+    out.append("    output float Bump = 0.0,\n")
+    out.append("    output float Rough = 0.3,\n")
+    out.append("    output float Weight = 0.0,\n")
+    out.append("    output normal DetailNormal = normal(0.0, 0.0, 1.0))\n{\n")
+    out.append(r'''
+    point object_p = transform("common", "object", P);
+    vector blender_q = vector(object_p) - vector(ModelCenter);
+    normal blender_n = normalize(transform("common", "object", N));
+    // Cobra import: B(X,Y,Z)=G(-X,-Z,Y); invert it before game-space projection.
+    vector q = vector(-blender_q[0], blender_q[2], -blender_q[1])*PositionScale;
+    normal game_n = normalize(normal(-blender_n[0], blender_n[2], -blender_n[1]));
+    vector raw_w = vector(
+        sat((abs(game_n[0])-0.5735764503)*4.0720658302),
+        sat((abs(game_n[1])-0.5735764503)*4.0720658302),
+        sat((abs(game_n[2])-0.5735764503)*4.0720658302));
+    vector weights = raw_w / max(raw_w[0]+raw_w[1]+raw_w[2], 1.0e-8);
+
+    float accum_height = 0.0;
+    float accum_bump = 0.0;
+    color accum_albedo = color(0.5);
+    float accum_rough = 0.3;
+    float accum_weight = 0.0;
+''')
+
+    for ordinal, (layer, mask_path) in enumerate(layer_entries):
+        p = layer.get("params", {})
+        off = p.get("pUVOffset", [0.0, 0.0])
+        tile = p.get("pUVTile", [1.0, 1.0])
+        pivot = p.get("pUVRotationPosition", [0.0, 0.0])
+        angle = p.get("pUVRotationAngle", [0.0])[0] * math.pi
+        projected = bool(p.get("pUVEnableProjection", [0])[0])
+        args = (f"q, weights, {off[0]:.9g}, {off[1]:.9g}, {tile[0]:.9g}, "
+                f"{tile[1]:.9g}, {pivot[0]:.9g}, {pivot[1]:.9g}, {angle:.9g}")
+        uv_setup = (f"float su_{ordinal}, tv_{ordinal};\n"
+                    f"    layer_uv(UV[0], UV[1], {off[0]:.9g}, {off[1]:.9g}, "
+                    f"{tile[0]:.9g}, {tile[1]:.9g}, {pivot[0]:.9g}, "
+                    f"{pivot[1]:.9g}, {angle:.9g}, su_{ordinal}, tv_{ordinal});\n")
+        out.append(f"\n    // Layer {layer.get('layer_no', ordinal + 1):02d}: {layer.get('swatch', '')}\n")
+        # Mirrored shells may be shifted into U=1..2. OSL's texture() does not reliably inherit
+        # the source texture's repeat mode, so sample the blend masks with the same explicit
+        # periodic wrapping used by the layer swatches. Without this, the shifted half receives
+        # a black mask and remains at the initial (wet-looking) roughness of 0.3.
+        out.append(f"    color mask_color_{ordinal} = texture({_osl_quote(mask_path)}, "
+                   f"wrap01(UV[0]), wrap01(UV[1]), \"missingcolor\", color(0.0));\n")
+        # Cobra has already split the source RGBA array into one grayscale PNG per channel.
+        # Read the grayscale value for every `_R/_G/_B/_A` file; `_A.png`'s PNG alpha is merely
+        # opaque storage metadata and reading it would make that layer cover the whole animal.
+        out.append(f"    float mask_{ordinal} = sat(mask_color_{ordinal}[0]);\n")
+        if not projected:
+            out.append("    " + uv_setup)
+
+        samples = {}
+        for slot, suffix, fallback in (("pHeightTexture", "", "color(0.0)"),
+                                       ("pDiffuseTexture", "", "color(0.5)"),
+                                       ("pPackedTexture", "_RGB", f"color({ROUGHNESS_DEFAULT})")):
+            path = _slice_path(layer, slot, suffix)
+            var = {"pHeightTexture": "height_tex", "pDiffuseTexture": "diffuse_tex",
+                   "pPackedTexture": "packed_tex"}[slot] + f"_{ordinal}"
+            if path:
+                expr = (f"projected_sample({_osl_quote(path)}, {args})" if projected else
+                        f"repeat_sample({_osl_quote(path)}, su_{ordinal}, tv_{ordinal})")
+            else:
+                expr = fallback
+            out.append(f"    color {var} = {expr};\n")
+            samples[slot] = var
+
+        norm = 1.0 / max(max(tile), 1e-6)
+        hscale = p.get("pHeightScale", [0.0])[0] * norm * HEIGHT_SCALE
+        hoff = p.get("pHeightOffset", [0.0])[0] * 0.01 * HEIGHT_SCALE
+        out.append(f"    float layer_bump_{ordinal} = {samples['pHeightTexture']}[0]*{hscale:.9g};\n")
+        out.append(f"    float layer_height_{ordinal} = layer_bump_{ordinal}+{hoff:.9g};\n")
+        scale_a = p.get("pHeightBlendScaleA", [0.0])[0]
+        scale_b = p.get("pHeightBlendScaleB", [0.0])[0]
+        out.append(f"    float mt_{ordinal} = 2.0*smooth01(mask_{ordinal})-1.0;\n")
+        out.append(f"    float delta_{ordinal} = (layer_height_{ordinal}*{scale_b:.9g} "
+                   f"- accum_height*{scale_a:.9g})*{SHARPNESS:.9g};\n")
+        out.append(f"    float soft_{ordinal} = 1.0-sat(abs(mt_{ordinal}));\n")
+        out.append(f"    float blend_{ordinal} = sat(((delta_{ordinal}-mt_{ordinal})*soft_{ordinal} "
+                   f"+ mt_{ordinal})*0.5+0.5);\n")
+
+        diffuse = samples["pDiffuseTexture"]
+        remap_idx = int(p.get("pRemapLutIndex", [-1])[0])
+        remap_path = _slice_path(layer, "pRemapTexture")
+        colour_var = diffuse
+        if remap_idx >= 0 and remap_path:
+            out.append(f"    float remap_u_{ordinal} = ({diffuse}[0]*0.2126 + {diffuse}[1]*0.7152 "
+                       f"+ {diffuse}[2]*0.0722)*0.96875+0.015625;\n")
+            # Blender 4.5 OSL presented the extracted PNG's DirectX row order directly, unlike an
+            # Image Texture node. Blender 5.x changed OptiX OSL texture orientation to match the
+            # node path: retaining the 4.5 coordinate selects the LUT's red filler rows. Keep the
+            # version split until the upstream change can be narrowed to an exact release.
+            remap_v = remap_idx * 0.0625 + 0.03125
+            if bpy.app.version >= (5, 0, 0):
+                remap_v = 1.0 - remap_v
+            out.append(f"    color remap_{ordinal} = texture({_osl_quote(remap_path)}, "
+                       f"remap_u_{ordinal}, {remap_v:.9g}, \"missingcolor\", color(1.0,0.0,1.0));\n")
+            colour_var = f"remap_{ordinal}"
+        satv = p.get("pDiffuseSaturation", [1.0])[0]
+        contrast = p.get("pDiffuseContrast", [1.0])[0]
+        out.append(f"    color layer_albedo_{ordinal} = sat_contrast({colour_var}, "
+                   f"{satv:.9g}, {contrast:.9g});\n")
+        out.append(f"    float albedo_blend_{ordinal} = smooth01(blend_{ordinal});\n")
+        weight = abs(layer.get("swatch_colour_weight", 1.0)) * p.get(
+            "pGlobalColouringWeight", [1.0])[0]
+        out.append(f"    accum_height = mix(accum_height, layer_height_{ordinal}, blend_{ordinal});\n")
+        out.append(f"    accum_bump = mix(accum_bump, layer_bump_{ordinal}, blend_{ordinal});\n")
+        out.append(f"    accum_albedo = mix(accum_albedo, layer_albedo_{ordinal}, albedo_blend_{ordinal});\n")
+        out.append(f"    if (RoughLayerLimit >= {ordinal + 1})\n")
+        out.append(f"        accum_rough = mix(accum_rough, {samples['pPackedTexture']}[0], "
+                   f"blend_{ordinal});\n")
+        out.append(f"    accum_weight = mix(accum_weight, {weight:.9g}, albedo_blend_{ordinal});\n")
+
+    out.append(r'''
+    Albedo = accum_albedo;
+    Height = accum_height;
+    Bump = accum_bump;
+    Rough = accum_rough;
+    Weight = accum_weight;
+    // The colour/height stack is intentionally derivative-free. Asking OptiX to differentiate
+    // this complete texture program fails compilation; relief is supplied by a separate compact
+    // normal stage so the stable OSL albedo backend remains usable.
+    DetailNormal = normalize(N);
+}
+''')
+    return "".join(out)
+
+
+def _osl_layer_stack_node(nt, layer_entries, mat_name, position_scale, position_center):
+    """Create the single generated OSL node used by the accurate backend."""
+    safe = "".join(ch if ch.isalnum() else "_" for ch in mat_name)
+    shader_name = f"JWE3_LayerStack_{safe}"
+    text_name = f"{shader_name}.osl"
+    source = _osl_layer_stack_source(layer_entries, shader_name)
+    script_text = bpy.data.texts.get(text_name) or bpy.data.texts.new(text_name)
+    script_text.clear()
+    script_text.write(source)
+    node = nt.nodes.new("ShaderNodeScript")
+    node.mode = "INTERNAL"
+    node.script = script_text
+    node.name = "JWE3 OSL Layer Stack"
+    node.label = "Accurate OSL: complete layer stack"
+    node.width = 300
+    node.update()
+    if "ModelCenter" in node.inputs:
+        node.inputs["ModelCenter"].default_value = tuple(position_center)
+    if "PositionScale" in node.inputs:
+        node.inputs["PositionScale"].default_value = position_scale
+    if "ReliefScale" in node.inputs:
+        node.inputs["ReliefScale"].default_value = 1.0
+    return node
+
+
+def _osl_height_normal_source(layer_entries, shader_name):
+    """Compact height-only OSL stage.
+
+    OptiX cannot differentiate the complete colour/remap/roughness program, but the layer normal
+    only needs blend masks and height slices. Keeping those lookups in a second script makes the
+    derivative program small enough while preserving the exact layer height/blend order.
+    """
+    out = [r'''
+float sat(float x) { return clamp(x, 0.0, 1.0); }
+float smooth01(float x) { x = sat(x); return x*x*(3.0 - 2.0*x); }
+float wrap01(float x) { return x - floor(x); }
+
+void layer_uv(float raw_u, float raw_v, float offset_u, float offset_v,
+              float tile_u, float tile_v, float pivot_u, float pivot_v, float angle,
+              output float uo, output float vo)
+{
+    float py = pivot_v - 1.0;
+    float a = (raw_u - offset_u) * tile_u - pivot_u;
+    float b = (raw_v - offset_v) * tile_v - py;
+    float c = cos(angle);
+    float s = sin(angle);
+    uo = wrap01(a*c - b*s + pivot_u);
+    vo = wrap01(a*s + b*c + py);
+}
+
+color repeat_sample(string filename, float su, float tv)
+{
+    return texture(filename, wrap01(su), wrap01(tv),
+                   "width", 0.0, "missingcolor", color(0.0));
+}
+
+void height_sample(string filename, float su, float tv,
+                   output float h, output float du, output float dv)
+{
+    // Extracted swatch-array slices are 512x512. Return derivatives per normalised texture
+    // coordinate, using the same four-neighbour central difference as shader 0300.
+    float e = 0.001953125;
+    color hc = repeat_sample(filename, su, tv);
+    color hr = repeat_sample(filename, su+e, tv);
+    color hl = repeat_sample(filename, su-e, tv);
+    color hu = repeat_sample(filename, su, tv+e);
+    color hd = repeat_sample(filename, su, tv-e);
+    h = hc[0];
+    du = (hr[0] - hl[0]) * 256.0;
+    dv = (hu[0] - hd[0]) * 256.0;
+}
+
+color projected_sample(string filename, vector q, vector weights,
+                       float offset_u, float offset_v, float tile_u, float tile_v,
+                       float pivot_u, float pivot_v, float angle)
+{
+    float uy, vy, ux, vx, uz, vz;
+    layer_uv(-q[0], -q[2], offset_u, offset_v, tile_u, tile_v,
+             pivot_u, pivot_v, angle, uy, vy);
+    layer_uv(-q[2], -q[1], offset_u, offset_v, tile_u, tile_v,
+             pivot_u, pivot_v, angle, ux, vx);
+    layer_uv(-q[0], -q[1], offset_u, offset_v, tile_u, tile_v,
+             pivot_u, pivot_v, angle, uz, vz);
+    color plane_y = repeat_sample(filename, uy, vy);
+    color plane_x = repeat_sample(filename, ux, vx);
+    color plane_z = repeat_sample(filename, uz, vz);
+    return plane_y*weights[1] + plane_x*weights[0] + plane_z*weights[2];
+}
+''']
+    out.append("shader %s(\n" % shader_name)
+    out.append("    point UV = point(0.0),\n")
+    out.append("    point ModelCenter = point(0.0),\n")
+    out.append("    float PositionScale = 1.0,\n")
+    native_relief = bpy.app.version >= (5, 0, 0)
+    if native_relief:
+        for ordinal in range(len(layer_entries)):
+            out.append(f"    output float LayerHeight{ordinal:02d} = 0.0,\n")
+            out.append(f"    output float LayerBlend{ordinal:02d} = 0.0,\n")
+    out.append("    output vector UVGradient = vector(0.0),\n")
+    out.append("    output vector ProjectedDelta = vector(0.0))\n{\n")
+    out.append(r'''
+    point object_p = transform("common", "object", P);
+    vector blender_q = vector(object_p) - vector(ModelCenter);
+    normal blender_n = normalize(transform("common", "object", N));
+    vector q = vector(-blender_q[0], blender_q[2], -blender_q[1])*PositionScale;
+    normal game_n = normalize(normal(-blender_n[0], blender_n[2], -blender_n[1]));
+    vector raw_w = vector(
+        sat((abs(game_n[0])-0.5735764503)*4.0720658302),
+        sat((abs(game_n[1])-0.5735764503)*4.0720658302),
+        sat((abs(game_n[2])-0.5735764503)*4.0720658302));
+    vector weights = raw_w / max(raw_w[0]+raw_w[1]+raw_w[2], 1.0e-8);
+    float accum_height = 0.0;
+    float accum_bump = 0.0;
+    vector accum_uv_gradient = vector(0.0);
+    vector accum_projected_gradient = vector(0.0);
+''')
+    for ordinal, (layer, mask_path) in enumerate(layer_entries):
+        p = layer.get("params", {})
+        off = p.get("pUVOffset", [0.0, 0.0])
+        tile = p.get("pUVTile", [1.0, 1.0])
+        pivot = p.get("pUVRotationPosition", [0.0, 0.0])
+        angle = p.get("pUVRotationAngle", [0.0])[0] * math.pi
+        projected = bool(p.get("pUVEnableProjection", [0])[0])
+        out.append(f"\n    color hm_{ordinal} = texture({_osl_quote(mask_path)}, "
+                   f"wrap01(UV[0]), wrap01(UV[1]), \"missingcolor\", color(0.0));\n")
+        out.append(f"    float mask_{ordinal} = sat(hm_{ordinal}[0]);\n")
+        hp = _slice_path(layer, "pHeightTexture")
+        norm = 1.0 / max(max(tile), 1e-6)
+        hscale = p.get("pHeightScale", [0.0])[0] * norm * HEIGHT_SCALE
+        hoff = p.get("pHeightOffset", [0.0])[0] * 0.01 * HEIGHT_SCALE
+        scale_a = p.get("pHeightBlendScaleA", [0.0])[0]
+        scale_b = p.get("pHeightBlendScaleB", [0.0])[0]
+        if hp and projected:
+            # Three projected planes. Convert each texture-space central difference back through
+            # layer rotation/tile, then into game-space q derivatives before screen projection.
+            args = (f"{off[0]:.9g}, {off[1]:.9g}, {tile[0]:.9g}, {tile[1]:.9g}, "
+                    f"{pivot[0]:.9g}, {pivot[1]:.9g}, {angle:.9g}")
+            out.append(f"    float uy_{ordinal}, vy_{ordinal}, ux_{ordinal}, vx_{ordinal}, "
+                       f"uz_{ordinal}, vz_{ordinal};\n")
+            out.append(f"    layer_uv(-q[0], -q[2], {args}, uy_{ordinal}, vy_{ordinal});\n")
+            out.append(f"    layer_uv(-q[2], -q[1], {args}, ux_{ordinal}, vx_{ordinal});\n")
+            out.append(f"    layer_uv(-q[0], -q[1], {args}, uz_{ordinal}, vz_{ordinal});\n")
+            for plane, uvar, vvar in (("y", "uy", "vy"), ("x", "ux", "vx"),
+                                      ("z", "uz", "vz")):
+                out.append(f"    float hh{plane}_{ordinal}, du{plane}_{ordinal}, dv{plane}_{ordinal};\n")
+                out.append(f"    height_sample({_osl_quote(hp)}, {uvar}_{ordinal}, {vvar}_{ordinal}, "
+                           f"hh{plane}_{ordinal}, du{plane}_{ordinal}, dv{plane}_{ordinal});\n")
+                out.append(f"    float gr1{plane}_{ordinal} = "
+                           f"(du{plane}_{ordinal}*cos({angle:.9g})+dv{plane}_{ordinal}*sin({angle:.9g}))"
+                           f"*{tile[0]:.9g};\n")
+                out.append(f"    float gr2{plane}_{ordinal} = "
+                           f"(-du{plane}_{ordinal}*sin({angle:.9g})+dv{plane}_{ordinal}*cos({angle:.9g}))"
+                           f"*{tile[1]:.9g};\n")
+            out.append(f"    float hs_{ordinal} = hhy_{ordinal}*weights[1] + "
+                       f"hhx_{ordinal}*weights[0] + hhz_{ordinal}*weights[2];\n")
+            out.append(f"    vector gq_{ordinal} = vector("
+                       f"-gr1y_{ordinal}*weights[1]-gr1z_{ordinal}*weights[2], "
+                       f"-gr2x_{ordinal}*weights[0]-gr2z_{ordinal}*weights[2], "
+                       f"-gr2y_{ordinal}*weights[1]-gr1x_{ordinal}*weights[0])*{hscale:.9g};\n")
+            out.append(f"    vector lgp_{ordinal} = transform(\"object\", \"common\", "
+                       f"vector(-gq_{ordinal}[0], -gq_{ordinal}[2], gq_{ordinal}[1])"
+                       f"*PositionScale);\n")
+            out.append(f"    vector lgu_{ordinal} = vector(0.0);\n")
+        elif hp:
+            out.append(f"    float hu_{ordinal}, hv_{ordinal};\n")
+            out.append(f"    layer_uv(UV[0], UV[1], {off[0]:.9g}, {off[1]:.9g}, "
+                       f"{tile[0]:.9g}, {tile[1]:.9g}, {pivot[0]:.9g}, "
+                       f"{pivot[1]:.9g}, {angle:.9g}, hu_{ordinal}, hv_{ordinal});\n")
+            out.append(f"    float hs_{ordinal}, hdu_{ordinal}, hdv_{ordinal};\n")
+            out.append(f"    height_sample({_osl_quote(hp)}, hu_{ordinal}, hv_{ordinal}, "
+                       f"hs_{ordinal}, hdu_{ordinal}, hdv_{ordinal});\n")
+            out.append(f"    float hgu_{ordinal} = (hdu_{ordinal}*cos({angle:.9g})+"
+                       f"hdv_{ordinal}*sin({angle:.9g}))*{tile[0]:.9g}*{hscale:.9g};\n")
+            out.append(f"    float hgv_{ordinal} = (-hdu_{ordinal}*sin({angle:.9g})+"
+                       f"hdv_{ordinal}*cos({angle:.9g}))*{tile[1]:.9g}*{hscale:.9g};\n")
+            out.append(f"    vector lgu_{ordinal} = vector(hgu_{ordinal}, hgv_{ordinal}, 0.0);\n")
+            out.append(f"    vector lgp_{ordinal} = vector(0.0);\n")
+        else:
+            out.append(f"    float hs_{ordinal} = 0.0;\n")
+            out.append(f"    vector lgu_{ordinal} = vector(0.0);\n")
+            out.append(f"    vector lgp_{ordinal} = vector(0.0);\n")
+        out.append(f"    float bump_{ordinal} = hs_{ordinal}*{hscale:.9g};\n")
+        out.append(f"    float height_{ordinal} = bump_{ordinal}+{hoff:.9g};\n")
+        out.append(f"    float mt_{ordinal} = 2.0*smooth01(mask_{ordinal})-1.0;\n")
+        out.append(f"    float delta_{ordinal} = (height_{ordinal}*{scale_b:.9g} "
+                   f"- accum_height*{scale_a:.9g})*{SHARPNESS:.9g};\n")
+        out.append(f"    float soft_{ordinal} = 1.0-sat(abs(mt_{ordinal}));\n")
+        out.append(f"    float blend_{ordinal} = sat(((delta_{ordinal}-mt_{ordinal})*soft_{ordinal} "
+                   f"+ mt_{ordinal})*0.5+0.5);\n")
+        out.append(f"    accum_height = mix(accum_height, height_{ordinal}, blend_{ordinal});\n")
+        out.append(f"    accum_bump = mix(accum_bump, bump_{ordinal}, blend_{ordinal});\n")
+        out.append(f"    accum_uv_gradient = mix(accum_uv_gradient, lgu_{ordinal}, blend_{ordinal});\n")
+        out.append(f"    accum_projected_gradient = mix(accum_projected_gradient, "
+                   f"lgp_{ordinal}, blend_{ordinal});\n")
+    if native_relief:
+        for ordinal in range(len(layer_entries)):
+            out.append(f"    LayerHeight{ordinal:02d} = bump_{ordinal};\n")
+            out.append(f"    LayerBlend{ordinal:02d} = blend_{ordinal};\n")
+    out.append(r'''
+    // OptiX returns zero for Dx(P), Dx(UV), dPdu and dPdv in this Script-node path. Keep UV-space
+    // slopes separate for Blender's Tangent Normal Map node; projected gradients already have a
+    // known game/object-space basis and are returned in common space.
+    UVGradient = -accum_uv_gradient;
+    ProjectedDelta = -accum_projected_gradient;
+}
+''')
+    return "".join(out)
+
+
+def _osl_height_normal_node(nt, layer_entries, mat_name, position_scale, position_center):
+    safe = "".join(ch if ch.isalnum() else "_" for ch in mat_name)
+    shader_name = f"JWE3_HeightNormal_{safe}"
+    script_text = bpy.data.texts.get(f"{shader_name}.osl") or bpy.data.texts.new(
+        f"{shader_name}.osl")
+    script_text.clear()
+    script_text.write(_osl_height_normal_source(layer_entries, shader_name))
+    node = nt.nodes.new("ShaderNodeScript")
+    node.mode = "INTERNAL"
+    node.script = script_text
+    node.name = "JWE3 OSL Height Normal"
+    node.label = "Accurate OSL: compact height normal"
+    node.width = 300
+    node.update()
+    if "ModelCenter" in node.inputs:
+        node.inputs["ModelCenter"].default_value = tuple(position_center)
+    if "PositionScale" in node.inputs:
+        node.inputs["PositionScale"].default_value = position_scale
+    return node
+
+
+def _osl_height_normal_group(layer_entries, mat_name, position_scale, position_center):
+    """One organised node group containing the compact OSL stage and normal composition."""
+    safe = "".join(ch if ch.isalnum() else "_" for ch in mat_name)
+    g, gin, gout = _new_group(
+        f"JWE3_{safe}_LayerHeightNormal",
+        [("UV", "NodeSocketVector"), ("BaseNormal", "NodeSocketVector"),
+         ("Strength", "NodeSocketFloat")],
+        [("Normal", "NodeSocketVector")])
+    gin.location = (-900, 0)
+    gout.location = (700, 0)
+    osl = _osl_height_normal_node(g, layer_entries, mat_name, position_scale, position_center)
+    osl.location = (-650, 180)
+    g.links.new(gin.outputs["UV"], osl.inputs["UV"])
+
+    # Blender 5.2 OptiX can differentiate scalar outputs from this compact OSL program in both
+    # the viewport and F12. Differentiate each layer independently, then apply Cobra's already
+    # computed blend factors to the normals. Differentiating the final blended height instead
+    # turns every blend-mask edge into a false cliff. Keeping these nodes inside one group gives
+    # the user a compact top-level material without returning to the old expanded layer forest.
+    if bpy.app.version >= (5, 0, 0):
+        native_frame = g.nodes.new("NodeFrame")
+        native_frame.name = "JWE3 Native Per-Layer Relief"
+        native_frame.label = "Blender 5.x native per-layer relief"
+        native_frame.label_size = 24
+        blend_frame = g.nodes.new("NodeFrame")
+        blend_frame.name = "JWE3 Cobra Normal Blend Chain"
+        blend_frame.label = "Cobra layer blend chain"
+        blend_frame.label_size = 24
+
+        normal = gin.outputs["BaseNormal"]
+        for ordinal, (layer, _mask_path) in enumerate(layer_entries):
+            layer_no = layer.get("layer_no", ordinal + 1)
+            bump = g.nodes.new("ShaderNodeBump")
+            bump.name = f"JWE3 Native Layer {layer_no:02d} Bump"
+            bump.label = f"Layer {layer_no:02d}: native height derivative"
+            bump.parent = native_frame
+            bump.location = (0, -ordinal * 150)
+            g.links.new(osl.outputs[f"LayerHeight{ordinal:02d}"], bump.inputs["Height"])
+            g.links.new(gin.outputs["Strength"], bump.inputs["Distance"])
+            g.links.new(gin.outputs["BaseNormal"], bump.inputs["Normal"])
+
+            mix = g.nodes.new("ShaderNodeMixRGB")
+            mix.name = f"JWE3 Native Layer {layer_no:02d} Mix"
+            mix.label = f"Layer {layer_no:02d}: Cobra blend"
+            mix.blend_type = "MIX"
+            mix.use_clamp = False
+            mix.parent = blend_frame
+            mix.location = (0, -ordinal * 150)
+            g.links.new(osl.outputs[f"LayerBlend{ordinal:02d}"], mix.inputs[0])
+            g.links.new(normal, mix.inputs[1])
+            g.links.new(bump.outputs["Normal"], mix.inputs[2])
+            normal = mix.outputs[0]
+
+        normalise = g.nodes.new("ShaderNodeVectorMath")
+        normalise.operation = "NORMALIZE"
+        normalise.name = "JWE3 Native Layer Normalise"
+        normalise.label = "Normalise final layer normal"
+        normalise.location = (450, -900)
+        g.links.new(normal, normalise.inputs[0])
+        g.links.new(normalise.outputs["Vector"], gout.inputs["Normal"])
+        native_frame.location = (-420, 550)
+        blend_frame.location = (40, 550)
+        gout.location = (750, -900)
+        return g
+
+    uv_relief = g.nodes.new("ShaderNodeVectorMath")
+    uv_relief.operation = "SCALE"
+    uv_relief.label = "UV relief strength"
+    g.links.new(osl.outputs["UVGradient"], uv_relief.inputs[0])
+    g.links.new(gin.outputs["Strength"], uv_relief.inputs[3])
+    uv_z = g.nodes.new("ShaderNodeVectorMath")
+    uv_z.operation = "ADD"
+    uv_z.inputs[1].default_value = (0.0, 0.0, 1.0)
+    uv_tangent_normal = g.nodes.new("ShaderNodeVectorMath")
+    uv_tangent_normal.operation = "NORMALIZE"
+    uv_half = g.nodes.new("ShaderNodeVectorMath")
+    uv_half.operation = "SCALE"
+    uv_half.inputs[3].default_value = 0.5
+    uv_bias = g.nodes.new("ShaderNodeVectorMath")
+    uv_bias.operation = "ADD"
+    uv_bias.inputs[1].default_value = (0.5, 0.5, 0.5)
+    normal_map = g.nodes.new("ShaderNodeNormalMap")
+    normal_map.space = "TANGENT"
+    normal_map.uv_map = "UV0"
+    normal_map.label = "UV0 tangent conversion"
+    g.links.new(uv_relief.outputs["Vector"], uv_z.inputs[0])
+    g.links.new(uv_z.outputs["Vector"], uv_tangent_normal.inputs[0])
+    g.links.new(uv_tangent_normal.outputs["Vector"], uv_half.inputs[0])
+    g.links.new(uv_half.outputs["Vector"], uv_bias.inputs[0])
+    g.links.new(uv_bias.outputs["Vector"], normal_map.inputs["Color"])
+
+    projected_relief = g.nodes.new("ShaderNodeVectorMath")
+    projected_relief.operation = "SCALE"
+    projected_relief.label = "Projected relief strength"
+    g.links.new(osl.outputs["ProjectedDelta"], projected_relief.inputs[0])
+    g.links.new(gin.outputs["Strength"], projected_relief.inputs[3])
+    geom = g.nodes.new("ShaderNodeNewGeometry")
+    detail_add = g.nodes.new("ShaderNodeVectorMath")
+    detail_add.operation = "ADD"
+    detail_normal = g.nodes.new("ShaderNodeVectorMath")
+    detail_normal.operation = "NORMALIZE"
+    delta = g.nodes.new("ShaderNodeVectorMath")
+    delta.operation = "SUBTRACT"
+    combined = g.nodes.new("ShaderNodeVectorMath")
+    combined.operation = "ADD"
+    normalise = g.nodes.new("ShaderNodeVectorMath")
+    normalise.operation = "NORMALIZE"
+    g.links.new(normal_map.outputs["Normal"], detail_add.inputs[0])
+    g.links.new(projected_relief.outputs["Vector"], detail_add.inputs[1])
+    g.links.new(detail_add.outputs["Vector"], detail_normal.inputs[0])
+    g.links.new(detail_normal.outputs["Vector"], delta.inputs[0])
+    g.links.new(geom.outputs["Normal"], delta.inputs[1])
+    g.links.new(gin.outputs["BaseNormal"], combined.inputs[0])
+    g.links.new(delta.outputs["Vector"], combined.inputs[1])
+    g.links.new(combined.outputs["Vector"], normalise.inputs[0])
+    g.links.new(normalise.outputs["Vector"], gout.inputs["Normal"])
+    layout(g, dx=240, dy=190)
+    return g
+
+
 def layer_group(L, mask_path, name, projection_position_scale=DEFAULT_PROJECTION_POSITION_SCALE,
                 projection_position_center=(0.0, 0.0, 0.0)):
     """One whole layer as a self-contained node group, so the material is a readable chain of 16.
@@ -576,7 +1183,7 @@ def layer_group(L, mask_path, name, projection_position_scale=DEFAULT_PROJECTION
     norm = 1.0 / max(max(tile), 1e-6)
     g, gin, gout = _new_group(
         name,
-        [("UV", "NodeSocketVector"), ("Object", "NodeSocketVector"),
+        [("UV", "NodeSocketVector"), ("ProjectionPosition", "NodeSocketVector"),
          ("PrevHeight", "NodeSocketFloat"),
          ("PrevBump", "NodeSocketFloat"), ("PrevAlbedo", "NodeSocketColor"),
          ("PrevRough", "NodeSocketFloat"), ("PrevWeight", "NodeSocketFloat")],
@@ -586,8 +1193,7 @@ def layer_group(L, mask_path, name, projection_position_scale=DEFAULT_PROJECTION
     gin.location, gout.location = (-1200, 0), (900, 0)
     m = _mk(g)
     projected = bool(p.get("pUVEnableProjection", [0])[0])
-    luv = (_layer_projection(g, gin.outputs["Object"], p, -1000, 500,
-                             projection_position_scale, projection_position_center)
+    luv = (_layer_projection(g, gin.outputs["ProjectionPosition"], p, -1000, 500)
            if projected else _layer_uv(g, gin.outputs["UV"], p, -1000, 500))
 
     mtex = g.nodes.new("ShaderNodeTexImage")
@@ -831,7 +1437,8 @@ def base_group(tex_dir, prefix, levels=(0.0, 0.5, 1.0), name="JWE3_Base", fgm_pa
         name,
         [("UV", "NodeSocketVector")],
         [("Diffuse", "NodeSocketColor"), ("RawDiffuse", "NodeSocketColor"),
-         ("Normal", "NodeSocketVector"), ("AO", "NodeSocketFloat")])
+         ("Normal", "NodeSocketVector"), ("BaseRoughness", "NodeSocketFloat"),
+         ("AO", "NodeSocketFloat")])
     m = _mk(g)
     uv = gin.outputs["UV"]
 
@@ -892,6 +1499,20 @@ def base_group(tex_dir, prefix, levels=(0.0, 0.5, 1.0), name="JWE3_Base", fgm_pa
         g["jwe3_has_normal"] = False
         print(f"  no base normal for {prefix} (pBaseNormalTexture)")
 
+    # %2380-%2384 samples pBaseNormalTexture.a as base roughness. The extractor writes that
+    # channel to `_A.png`; %2591 subtracts 1/255 and saturates it before the roughness overlay.
+    nrp = _base_texture(tex_dir, prefix, "pBaseNormalTexture", "A", fgm_path)
+    if nrp:
+        nrtex = g.nodes.new("ShaderNodeTexImage")
+        nrtex.image = _img(nrp)
+        g.links.new(uv, nrtex.inputs["Vector"])
+        g.links.new(m("SUBTRACT", nrtex.outputs["Color"], 1.0 / 255.0, clamp=True),
+                    gout.inputs["BaseRoughness"])
+        g["jwe3_has_base_roughness"] = True
+    else:
+        gout.inputs["BaseRoughness"].default_value = 0.5
+        g["jwe3_has_base_roughness"] = False
+
     ap = _base_texture(tex_dir, prefix, "pBaseAOTexture", "R", fgm_path)
     if ap:
         atex = g.nodes.new("ShaderNodeTexImage")
@@ -939,7 +1560,7 @@ def _layout_tail(nt, prev, base):
 def build(layers, mask_dir, mask_prefix, mat_name="JWE3_Layered", bump_distance=1.0,
           levels=(0.0, 0.5, 1.0), use_ao=True, fgm_path=None, base_diffuse_override=None,
           projection_position_scale=DEFAULT_PROJECTION_POSITION_SCALE,
-          projection_position_center=(0.0, 0.0, 0.0)):
+          projection_position_center=(0.0, 0.0, 0.0), layer_backend="BOX"):
     """Build the material as a left-to-right chain of per-layer groups.
 
     Every layer that has a mask channel is included, even if it has no texture in a given slot --
@@ -951,11 +1572,25 @@ def build(layers, mask_dir, mask_prefix, mat_name="JWE3_Layered", bump_distance=
     nt = mat.node_tree
     nt.nodes.clear()
 
+    backend = str(layer_backend or "BOX").upper()
+    if backend not in {"BOX", "OSL"}:
+        raise ValueError(f"unknown layer backend {layer_backend!r}; expected BOX or OSL")
+
     uv = nt.nodes.new("ShaderNodeUVMap")
     uv.uv_map = "UV0"
     uv.location = (-400, 0)
-    texcoord = nt.nodes.new("ShaderNodeTexCoord")
-    texcoord.location = (-400, -180)
+    # The OSL stack computes projected coordinates internally. Building the Blender Object-space
+    # projection chain as well leaves three dead nodes in the top-level material.
+    has_projection = backend == "BOX" and any(
+        bool(L.get("params", {}).get("pUVEnableProjection", [0])[0])
+        for L in layers if L.get("used") and L.get("blend_texture") is not None)
+    projection_position = None
+    if has_projection:
+        texcoord = nt.nodes.new("ShaderNodeTexCoord")
+        texcoord.location = (-400, -180)
+        projection_position = _projection_position(
+            nt, texcoord.outputs["Object"], projection_position_scale,
+            projection_position_center, -380, -360)
 
     # The blend-weight masks: stem from the .fgm's own `pLayered_BlendWeights` dependency when it
     # names one, else the sniffed folder prefix. The `_[NN]_C` tail is an ARRAY INDEX plus a channel
@@ -970,9 +1605,7 @@ def build(layers, mask_dir, mask_prefix, mat_name="JWE3_Layered", bump_distance=
         if dep:
             mask_stem = os.path.splitext(os.path.basename(dep))[0]
 
-    prev = None
-    x = 0
-    used = 0
+    layer_entries = []
     for L in layers:
         if not L["used"] or L["blend_texture"] is None:
             continue
@@ -981,25 +1614,39 @@ def build(layers, mask_dir, mask_prefix, mat_name="JWE3_Layered", bump_distance=
         if not os.path.isfile(mp):
             print(f"  L{L['layer_no']:02d} skipped: no mask {os.path.basename(mp)}")
             continue
-        gn = nt.nodes.new("ShaderNodeGroup")
-        gn.node_tree = layer_group(L, mp, f"{mat_name}_L{L['layer_no']:02d}",
-                                   projection_position_scale, projection_position_center)
-        gn.location = (x, 0)
-        gn.width = 220
-        gn.label = f"L{L['layer_no']:02d} {L['swatch']}"
-        nt.links.new(uv.outputs["UV"], gn.inputs["UV"])
-        nt.links.new(texcoord.outputs["Object"], gn.inputs["Object"])
-        if prev is None:
-            # the shader's initial accumulator values, %2192-%2199
-            gn.inputs["PrevAlbedo"].default_value = (0.5, 0.5, 0.5, 1.0)
-            gn.inputs["PrevRough"].default_value = ROUGHNESS_DEFAULT
-            gn.inputs["PrevWeight"].default_value = 0.0      # %2192 starts at zero
-        else:
-            for key in ("Height", "Bump", "Albedo", "Rough", "Weight"):
-                nt.links.new(prev.outputs[key], gn.inputs["Prev" + key])
-        prev = gn
-        x += 300
-        used += 1
+        layer_entries.append((L, mp))
+
+    prev = None
+    x = 0
+    if backend == "OSL" and layer_entries:
+        prev = _osl_layer_stack_node(nt, layer_entries, mat_name,
+                                     projection_position_scale, projection_position_center)
+        prev.location = (0, 0)
+        nt.links.new(uv.outputs["UV"], prev.inputs["UV"])
+        x = 360
+    else:
+        for L, mp in layer_entries:
+            gn = nt.nodes.new("ShaderNodeGroup")
+            gn.node_tree = layer_group(L, mp, f"{mat_name}_L{L['layer_no']:02d}",
+                                       projection_position_scale, projection_position_center)
+            gn.location = (x, 0)
+            gn.width = 220
+            gn.label = f"L{L['layer_no']:02d} {L['swatch']}"
+            nt.links.new(uv.outputs["UV"], gn.inputs["UV"])
+            projected = bool(L.get("params", {}).get("pUVEnableProjection", [0])[0])
+            if projected:
+                nt.links.new(projection_position, gn.inputs["ProjectionPosition"])
+            if prev is None:
+                # the shader's initial accumulator values, %2192-%2199
+                gn.inputs["PrevAlbedo"].default_value = (0.5, 0.5, 0.5, 1.0)
+                gn.inputs["PrevRough"].default_value = ROUGHNESS_DEFAULT
+                gn.inputs["PrevWeight"].default_value = 0.0      # %2192 starts at zero
+            else:
+                for key in ("Height", "Bump", "Albedo", "Rough", "Weight"):
+                    nt.links.new(prev.outputs[key], gn.inputs["Prev" + key])
+            prev = gn
+            x += 300
+    used = len(layer_entries)
 
     bsdf = nt.nodes.new("ShaderNodeBsdfPrincipled")
     out = nt.nodes.new("ShaderNodeOutputMaterial")
@@ -1017,6 +1664,7 @@ def build(layers, mask_dir, mask_prefix, mat_name="JWE3_Layered", bump_distance=
         ov = nt.nodes.new("ShaderNodeMix")
         ov.data_type = "RGBA"
         ov.blend_type = "OVERLAY"
+        ov.label = "JWE3 Base + Layer Albedo"
         ov.inputs["Factor"].default_value = 1.0
         nt.links.new(base.outputs["Diffuse"], ov.inputs[6])
         nt.links.new(prev.outputs["Albedo"], ov.inputs[7])
@@ -1028,30 +1676,60 @@ def build(layers, mask_dir, mask_prefix, mat_name="JWE3_Layered", bump_distance=
             ao = nt.nodes.new("ShaderNodeMix")
             ao.data_type = "RGBA"
             ao.blend_type = "MULTIPLY"
+            ao.label = "JWE3 AO"
             ao.inputs["Factor"].default_value = 1.0
             nt.links.new(albedo, ao.inputs[6])
             nt.links.new(base.outputs["AO"], ao.inputs[7])
             albedo = ao.outputs[2]
 
         nt.links.new(albedo, bsdf.inputs["Base Color"])
-        nt.links.new(prev.outputs["Rough"], bsdf.inputs["Roughness"])
-        # the layer bump PERTURBS the base normal -- it does not replace it. Baryonyx carries most
-        # of its scale detail in pBaseNormalTexture, so dropping this loses the whole animal.
-        bn = nt.nodes.new("ShaderNodeBump")
-        bn.inputs["Distance"].default_value = bump_distance
-        nt.links.new(prev.outputs["Bump"], bn.inputs["Height"])
-        # ONLY if the base group actually produced a normal. Its "Normal" output is left
-        # unconnected when pBaseNormalTexture is missing, and an unlinked vector socket reads as
-        # (0,0,0): a zero-length normal, which renders as flat purple over the entire mesh.
-        # Left unlinked, Bump falls back to the true surface normal, which is what we want.
-        if base.node_tree.get("jwe3_has_normal"):
-            nt.links.new(base.outputs["Normal"], bn.inputs["Normal"])
-        nt.links.new(bn.outputs["Normal"], bsdf.inputs["Normal"])
+        # %2591-%2605: Overlay(base-normal alpha, accumulated packed red roughness).
+        # base < .5 -> 2*layer*base; otherwise -> 1-2*(1-layer)*(1-base).
+        roughness = nt.nodes.new("ShaderNodeGroup")
+        roughness.node_tree = _shared(roughness_overlay_group)
+        roughness.name = "JWE3 Roughness Overlay"
+        roughness.label = "JWE3 Roughness Overlay"
+        roughness.width = 220
+        nt.links.new(base.outputs["BaseRoughness"], roughness.inputs["BaseRoughness"])
+        nt.links.new(prev.outputs["Rough"], roughness.inputs["LayerRoughness"])
+        nt.links.new(roughness.outputs["Roughness"], bsdf.inputs["Roughness"])
+        if backend == "OSL" and "DetailNormal" in prev.outputs:
+            # Keep the second, compact OSL height program and all normal-composition plumbing in
+            # one labelled group. The top-level material stays readable: one colour-stack node,
+            # one height-normal node, base material, roughness overlay, and Principled.
+            height_normal = nt.nodes.new("ShaderNodeGroup")
+            height_normal.node_tree = _osl_height_normal_group(
+                layer_entries, mat_name, projection_position_scale, projection_position_center)
+            height_normal.name = "JWE3 Layer Height Normal"
+            height_normal.label = "JWE3 Layer Height Normal"
+            height_normal.width = 260
+            height_normal.location = (prev.location.x, prev.location.y - 360)
+            nt.links.new(uv.outputs["UV"], height_normal.inputs["UV"])
+            height_normal.inputs["Strength"].default_value = bump_distance
+            if base.node_tree.get("jwe3_has_normal"):
+                nt.links.new(base.outputs["Normal"], height_normal.inputs["BaseNormal"])
+            else:
+                geom = nt.nodes.new("ShaderNodeNewGeometry")
+                nt.links.new(geom.outputs["Normal"], height_normal.inputs["BaseNormal"])
+            nt.links.new(height_normal.outputs["Normal"], bsdf.inputs["Normal"])
+        else:
+            # the layer bump PERTURBS the base normal -- it does not replace it. Baryonyx carries
+            # most of its scale detail in pBaseNormalTexture, so dropping this loses the animal.
+            bn = nt.nodes.new("ShaderNodeBump")
+            bn.inputs["Distance"].default_value = bump_distance
+            nt.links.new(prev.outputs["Bump"], bn.inputs["Height"])
+            # ONLY if the base group actually produced a normal. Its "Normal" output is left
+            # unconnected when pBaseNormalTexture is missing, and an unlinked vector socket reads
+            # as (0,0,0): a zero-length normal, which renders as flat purple over the entire mesh.
+            if base.node_tree.get("jwe3_has_normal"):
+                nt.links.new(base.outputs["Normal"], bn.inputs["Normal"])
+            nt.links.new(bn.outputs["Normal"], bsdf.inputs["Normal"])
         mat["jwe3_albedo_node"] = ov.name          # the palette replaces what feeds Base Color
     mat["jwe3_last_layer"] = prev.name if prev else ""    # the palette hooks onto its Height
     mat["jwe3_base_node"] = base.name
     mat["jwe3_projection_position_scale"] = projection_position_scale
     mat["jwe3_projection_position_center"] = tuple(projection_position_center)
+    mat["jwe3_layer_backend"] = backend
     layout(nt, dx=320, dy=260)
     _layout_tail(nt, prev, base)
     print(f"{mat.name}: {used} layers wired")

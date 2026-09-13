@@ -1,0 +1,32 @@
+OpenShadingLanguage 1.00
+# Compiled by oslc 1.14.4.0dev
+# options: -o C:\Users\shado\AppData\Local\Temp\tmpbw6_oe97.oso -IC:\Program Files\Blender Foundation\Blender 4.5\4.5\scripts\addons_core\cycles\shader
+shader JWE3_OSL_Derivative_Probe
+param	float	Scale	1		%read{1,1} %write{2147483647,-1} %derivs
+oparam	color	Color	0 0 0		%read{2147483647,-1} %write{6,6}
+global	point	P	%read{0,0} %write{2147483647,-1} %derivs
+local	float	value	%read{2,3} %write{1,1} %derivs
+local	float	dx	%read{4,4} %write{2,2}
+local	float	dy	%read{5,5} %write{3,3}
+const	int	$const1	0		%read{0,0} %write{2147483647,-1}
+temp	float	$tmp1	%read{1,1} %write{0,0} %derivs
+temp	float	$tmp2	%read{6,6} %write{4,4}
+temp	float	$tmp3	%read{6,6} %write{5,5}
+const	float	$const2	0		%read{6,6} %write{2147483647,-1}
+code ___main___
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_derivative_probe.osl:6
+#     float dx = Dx(value);
+	compref		$tmp1 P $const1 	%filename{"D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_derivative_probe.osl"} %line{6} %argrw{"wrr"}
+	mul		value $tmp1 Scale 	%argrw{"wrr"}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_derivative_probe.osl:7
+#     float dy = Dy(value);
+	Dx		dx value 	%line{7} %argrw{"wr"} %argderivs{1}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_derivative_probe.osl:8
+#     Color = color(abs(dx), abs(dy), 0.0);
+	Dy		dy value 	%line{8} %argrw{"wr"} %argderivs{1}
+# D:\\JWE2 Stuff\\Cobra Tool Versions\\Main Mod Kit\\JWE 3 Luas\\Base Game\\Dinosaur Files\\Variant Research\\VariantEditor\\vendor\\jwe3_osl_derivative_probe.osl:9
+# }
+	abs		$tmp2 dx 	%line{9} %argrw{"wr"}
+	abs		$tmp3 dy 	%argrw{"wr"}
+	color		Color $tmp2 $tmp3 $const2 	%argrw{"wrrr"}
+	end
